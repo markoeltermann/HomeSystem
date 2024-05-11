@@ -1,0 +1,227 @@
+﻿@page "/chartView"
+@page "/"
+@using Web.Client.DTOs
+@inject HttpClient http
+
+<PageTitle>Point viewer</PageTitle>
+
+<div class="d-flex flex-row h-100">
+    <div class="d-flex flex-column overflow-y-auto me-3">
+        @if (Devices != null)
+        {
+            foreach (var item in Devices)
+            {
+                if (item.Points != null)
+                {
+                    <span>@item.Name</span>
+                    @foreach (var point in item.Points)
+                    {
+                        <div class="form-check ms-3">
+                            <InputCheckbox class="form-check-input" id="@("point" + point.Id)" @bind-Value=point.IsSelected @bind-Value:after="SelectedValuesUpdated" />
+                            <label class="form-check-label" for="@("point" + point.Id)">
+                                @(point.DataTypeName![0..1] + " " + point.Name)
+                            </label>
+                        </div>
+                    }
+                }
+            }
+        }
+    </div>
+    <div class="flex-grow-1 d-flex flex-column">
+        <div class="row mb-2">
+            <div class="col">
+                <div class="input-group mb-3">
+                    <span class="input-group-text">From</span>
+                    <InputDate TValue="DateTime" @bind-Value=DateFrom @bind-Value:after="SelectedValuesUpdated" class="form-control me-2" />
+                </div>
+            </div>
+            <div class="col d-flex justify-content-center align-items-start">
+                <button type="button" class="btn chart-button-narrow btn-primary me-2" @onclick="OnPreviousClick">◁</button>
+                <button type="button" class="btn chart-button-wide btn-primary me-2" @onclick="OnMonthClick">Month</button>
+                <button type="button" class="btn chart-button-wide btn-primary me-2" @onclick="OnWeekClick">Week</button>
+                <button type="button" class="btn chart-button-wide btn-primary me-2" @onclick="OnDayClick">Day</button>
+                <button type="button" class="btn chart-button-narrow btn-primary" @onclick="OnNextClick">▷</button>
+            </div>
+            <div class="col">
+                <div class="input-group mb-3">
+                    <span class="input-group-text">Up&nbsp;to</span>
+                    <InputDate TValue="DateTime" @bind-Value=DateUpTo @bind-Value:after="SelectedValuesUpdated" class="form-control" />
+                </div>
+            </div>
+        </div>
+@*         <div class="row">
+            <div class="col d-flex flex-row">
+                <div class="input-group mb-3">
+                    <span class="input-group-text">From</span>
+                    <InputDate TValue="DateTime" @bind-Value=DateFrom @bind-Value:after="SelectedValuesUpdated" class="form-control me-2" />
+                </div>
+                <div class="input-group mb-3">
+                    <span class="input-group-text">Up&nbsp;to</span>
+                    <InputDate TValue="DateTime" @bind-Value=DateUpTo @bind-Value:after="SelectedValuesUpdated" class="form-control" />
+                </div>
+            </div>
+        </div> *@
+        <div class="row flex-grow-1">
+            <div class="col">
+                <ApexChart TItem="NumericValueDto" Options="Options" @ref="apexChart" XAxisType="XAxisType.Datetime">
+                    @foreach (var series in Values)
+                    {
+                        <ApexPointSeries TItem="NumericValueDto"
+                                         Items="series.Item2"
+                                         Name="@series.Item1"
+                                         SeriesType="SeriesType.Line"
+                                         XValue="@(e => e.Timestamp)"
+                                         YValue="@(e => (decimal)e.Value)" />
+                    }
+                </ApexChart>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    ApexChart<NumericValueDto> apexChart = null!;
+
+    DateTime DateFrom { get; set; }
+    DateTime DateUpTo { get; set; }
+
+    private async Task OnPreviousClick()
+    {
+        if (IsMonthSelected())
+        {
+            DateFrom = DateFrom.AddMonths(-1);
+            DateUpTo = DateFrom.AddMonths(1).AddDays(-1);
+        }
+        else
+        {
+            var range = DateUpTo.AddDays(1) - DateFrom;
+            DateFrom -= range;
+            DateUpTo -= range;
+        }
+        await SelectedValuesUpdated();
+    }
+
+    private async Task OnNextClick()
+    {
+        if (IsMonthSelected())
+        {
+            DateFrom = DateFrom.AddMonths(1);
+            DateUpTo = DateFrom.AddMonths(1).AddDays(-1);
+        }
+        else
+        {
+            var range = DateUpTo.AddDays(1) - DateFrom;
+            DateFrom += range;
+            DateUpTo += range;
+        }
+        await SelectedValuesUpdated();
+    }
+
+    private bool IsMonthSelected()
+    {
+        return DateFrom.Day == 1 && DateUpTo == DateFrom.AddMonths(1).AddDays(-1);
+    }
+
+    private async Task OnDayClick()
+    {
+        DateFrom = DateUpTo = DateTime.Today;
+        await SelectedValuesUpdated();
+    }
+
+    private async Task OnMonthClick()
+    {
+        var today = DateTime.Today;
+        DateFrom = new DateTime(today.Year, today.Month, 1);
+        DateUpTo = DateFrom.AddMonths(1).AddDays(-1);
+        await SelectedValuesUpdated();
+    }
+
+    private async Task OnWeekClick()
+    {
+        var today = DateTime.Today;
+        DateFrom = today.AddDays(today.DayOfWeek == DayOfWeek.Sunday ? -6 : -((int)today.DayOfWeek - 1));
+        DateUpTo = DateFrom.AddDays(6);
+        await SelectedValuesUpdated();
+    }
+
+    private async Task SelectedValuesUpdated()
+    {
+        var newValues = new List<(string, NumericValueDto[])>();
+        await apexChart.UpdateSeriesAsync(false);
+
+        foreach (var device in Devices)
+        {
+            if (device?.Points != null)
+            {
+                foreach (var point in device.Points.Where(x => x.IsSelected))
+                {
+                    var id = point.Id;
+                    var values = await http.GetFromJsonAsync<NumericValueDto[]>($"api/devicePoints/{id}/values?from={DateFrom:yyyy-MM-dd}&upTo={DateUpTo:yyyy-MM-dd}");
+                    newValues.Add((device.Name + ": " + point.Name, values!));
+                }
+            }
+        }
+        Values = newValues;
+
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            await apexChart.RenderAsync();
+    }
+
+    List<(string, NumericValueDto[])> Values { get; set; } = new();
+
+    ApexChartOptions<NumericValueDto> Options = new ApexChartOptions<NumericValueDto>
+        {
+            Legend = new Legend { Show = true },
+            Chart = new Chart
+            {
+                Animations = new Animations
+                {
+                    Enabled = false
+                },
+                Height = "100%"
+            },
+            Stroke = new Stroke
+            {
+                Width = 1
+            },
+            Xaxis = new XAxis
+            {
+                Labels = new XAxisLabels
+                {
+                    DatetimeUTC = false
+                }
+            },
+            Grid = new Grid
+            {
+                Xaxis = new GridXAxis
+                {
+                    Lines = new Lines
+                    {
+                        Show = true
+                    }
+                }
+            },
+            Tooltip = new Tooltip
+            {
+                X = new TooltipX
+                {
+                    Format = "MM-dd HH:mm"
+                }
+            }
+        };
+
+    DeviceDto[] Devices { get; set; } = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        DateFrom = DateUpTo = DateTime.Today;
+        // DateFrom = DateTime.Today.AddDays(-7);
+        // DateUpTo = DateTime.Today.AddDays(-6);
+        Devices = await http.GetFromJsonAsync<DeviceDto[]>("api/devices") ?? Array.Empty<DeviceDto>();
+    }
+}

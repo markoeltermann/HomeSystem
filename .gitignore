@@ -1,0 +1,24 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs
+/Domain/bin
+/Domain/obj
+/SharedServices/bin
+/SharedServices/obj
+/TestApp/bin
+/TestApp/obj
+/ValueReaderService/bin
+/ValueReaderService/obj
+/VentilationManager/bin
+/VentilationManager/obj
+/Web/Web/bin
+/Web/Web/obj
+/Web/Web.Client/bin
+/Web/Web.Client/obj
+*appSettings*.json
+*nlog.config
+*.csproj.user
+/Domain/ScaffoldDatabase.cmd
+*.pubxml.user

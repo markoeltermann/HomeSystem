@@ -1,0 +1,34 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="Web.styles.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet @rendermode="InteractiveWebAssembly" />
+</head>
+
+<body>
+    @if (IsInitialized)
+    {
+        <Routes @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+    }
+    <script src="_framework/blazor.web.js"></script>
+    <script src="bootstrap/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
+
+@code {
+    bool IsInitialized { get; set; }
+
+    protected override Task OnInitializedAsync()
+    {
+        IsInitialized = true;
+        return base.OnInitializedAsync();
+    }
+}
