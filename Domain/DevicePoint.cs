@@ -15,9 +15,13 @@ public partial class DevicePoint
 
     public int DataTypeId { get; set; }
 
+    public int? UnitId { get; set; }
+
     public virtual DataType DataType { get; set; } = null!;
 
     public virtual Device Device { get; set; } = null!;
 
     public virtual ICollection<EnumMember> EnumMembers { get; } = new List<EnumMember>();
+
+    public virtual Unit? Unit { get; set; }
 }

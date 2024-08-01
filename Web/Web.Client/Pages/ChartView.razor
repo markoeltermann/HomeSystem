@@ -1,12 +1,14 @@
 ﻿@page "/chartView"
 @page "/"
+@using System.Globalization
 @using Web.Client.DTOs
 @inject HttpClient http
+@inject NavigationManager navManager
 
 <PageTitle>Point viewer</PageTitle>
 
 <div class="d-flex flex-row h-100">
-    <div class="d-flex flex-column overflow-y-auto me-3">
+    <div class="overflow-y-auto me-3">
         @if (Devices != null)
         {
             foreach (var item in Devices)
@@ -19,7 +21,7 @@
                         <div class="form-check ms-3">
                             <InputCheckbox class="form-check-input" id="@("point" + point.Id)" @bind-Value=point.IsSelected @bind-Value:after="SelectedValuesUpdated" />
                             <label class="form-check-label" for="@("point" + point.Id)">
-                                @(point.DataTypeName![0..1] + " " + point.Name)
+                                @(point.DataTypeName![0..1] + " " + point.Name + (point.Unit != null ? $" ({point.Unit})" : null))
                             </label>
                         </div>
                     }
@@ -27,42 +29,42 @@
             }
         }
     </div>
-    <div class="flex-grow-1 d-flex flex-column">
+    <div class="flex-grow-1 d-flex flex-column overflow-hidden pt-1">
         <div class="row mb-2">
-            <div class="col">
+            <div class="col-6 col-xl-3">
                 <div class="input-group mb-3">
                     <span class="input-group-text">From</span>
-                    <InputDate TValue="DateTime" @bind-Value=DateFrom @bind-Value:after="SelectedValuesUpdated" class="form-control me-2" />
+                    <InputDate TValue="DateTime" @bind-Value=DateFrom @bind-Value:after="SelectedValuesUpdated" class="form-control" />
                 </div>
             </div>
-            <div class="col d-flex justify-content-center align-items-start">
-                <button type="button" class="btn chart-button-narrow btn-primary me-2" @onclick="OnPreviousClick">◁</button>
-                <button type="button" class="btn chart-button-wide btn-primary me-2" @onclick="OnMonthClick">Month</button>
-                <button type="button" class="btn chart-button-wide btn-primary me-2" @onclick="OnWeekClick">Week</button>
-                <button type="button" class="btn chart-button-wide btn-primary me-2" @onclick="OnDayClick">Day</button>
-                <button type="button" class="btn chart-button-narrow btn-primary" @onclick="OnNextClick">▷</button>
+            <div class="col-xl-6 col-lg-12 order-5 order-xl-2 d-flex justify-content-between align-items-start">
+                <div></div>
+                <div class="d-flex flex-column">
+                    <div>
+                        <button type="button" class="btn chart-button-narrow btn-primary me-2" @onclick="OnPreviousClick">◁</button>
+                        <button type="button" class="btn chart-button-wide btn-primary me-2" @onclick="OnMonthClick">Month</button>
+                        <button type="button" class="btn chart-button-wide btn-primary me-2" @onclick="OnWeekClick">Week</button>
+                        <button type="button" class="btn chart-button-wide btn-primary me-2" @onclick="OnDayClick">Day</button>
+                        <button type="button" class="btn chart-button-narrow btn-primary" @onclick="OnNextClick">▷</button>
+                    </div>
+                    @if (IsLoading)
+                    {
+                        <div class="progress mt-2 loading-bar" role="progressbar">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div>
+                        </div>
+                    }
+                </div>
+                <button type="button" class="btn chart-button-narrow btn-primary me-2" @onclick="SelectedValuesUpdated">↺</button>
             </div>
-            <div class="col">
+            <div class="col-6 col-xl-3 order-2 order-xl-3">
                 <div class="input-group mb-3">
                     <span class="input-group-text">Up&nbsp;to</span>
                     <InputDate TValue="DateTime" @bind-Value=DateUpTo @bind-Value:after="SelectedValuesUpdated" class="form-control" />
                 </div>
             </div>
         </div>
-@*         <div class="row">
-            <div class="col d-flex flex-row">
-                <div class="input-group mb-3">
-                    <span class="input-group-text">From</span>
-                    <InputDate TValue="DateTime" @bind-Value=DateFrom @bind-Value:after="SelectedValuesUpdated" class="form-control me-2" />
-                </div>
-                <div class="input-group mb-3">
-                    <span class="input-group-text">Up&nbsp;to</span>
-                    <InputDate TValue="DateTime" @bind-Value=DateUpTo @bind-Value:after="SelectedValuesUpdated" class="form-control" />
-                </div>
-            </div>
-        </div> *@
         <div class="row flex-grow-1">
-            <div class="col">
+            <div class="col pb-2 ps-4 pe-4">
                 <ApexChart TItem="NumericValueDto" Options="Options" @ref="apexChart" XAxisType="XAxisType.Datetime">
                     @foreach (var series in Values)
                     {
@@ -71,8 +73,9 @@
                                          Name="@series.Item1"
                                          SeriesType="SeriesType.Line"
                                          XValue="@(e => e.Timestamp)"
-                                         YValue="@(e => (decimal)e.Value)" />
+                                         YValue="@(e => (decimal?)e.Value)" />
                     }
+
                 </ApexChart>
             </div>
         </div>
@@ -80,10 +83,26 @@
 </div>
 
 @code {
+    bool isInitializing = true;
+
     ApexChart<NumericValueDto> apexChart = null!;
 
-    DateTime DateFrom { get; set; }
-    DateTime DateUpTo { get; set; }
+    [SupplyParameterFromQuery(Name = "df")]
+    public string? DateFromQ { get; set; }
+
+    [SupplyParameterFromQuery(Name = "du")]
+    public string? DateUpToQ { get; set; }
+
+    public DateTime DateFrom { get; set; }
+
+    public DateTime DateUpTo { get; set; }
+
+    [SupplyParameterFromQuery(Name = "dpid")]
+    public int[]? SelectedDevicePointIds { get; set; }
+
+    bool IsLoading { get; set; }
+
+    int generation;
 
     private async Task OnPreviousClick()
     {
@@ -146,8 +165,21 @@
 
     private async Task SelectedValuesUpdated()
     {
-        var newValues = new List<(string, NumericValueDto[])>();
-        await apexChart.UpdateSeriesAsync(false);
+        var selectedDevicePointIds = Devices.SelectMany(d => d.Points!.Where(p => p.IsSelected)).Select(d => d.Id).ToArray();
+        navManager.NavigateTo(navManager.GetUriWithQueryParameters(new Dictionary<string, object?> {
+            { "df", DateFrom.ToString("yyyy-MM-dd") },
+            { "du", DateUpTo.ToString("yyyy-MM-dd") },
+            { "dpid", selectedDevicePointIds }
+        }));
+        generation++;
+
+        var currentGeneration = generation;
+
+        var newValues = new List<(string name, ValueContainerDto values)>();
+
+        IsLoading = true;
+        StateHasChanged();
+        // await Task.Delay(1000);
 
         foreach (var device in Devices)
         {
@@ -156,13 +188,60 @@
                 foreach (var point in device.Points.Where(x => x.IsSelected))
                 {
                     var id = point.Id;
-                    var values = await http.GetFromJsonAsync<NumericValueDto[]>($"api/devicePoints/{id}/values?from={DateFrom:yyyy-MM-dd}&upTo={DateUpTo:yyyy-MM-dd}");
+                    var values = await http.GetFromJsonAsync<ValueContainerDto>($"api/devicePoints/{id}/values?from={DateFrom:yyyy-MM-dd}&upTo={DateUpTo:yyyy-MM-dd}");
                     newValues.Add((device.Name + ": " + point.Name, values!));
+
+                    if (currentGeneration != generation)
+                        return;
                 }
             }
         }
-        Values = newValues;
 
+        if (newValues.Any())
+        {
+            var values = new List<(string, NumericValueDto[])>();
+            var yAxes = new List<YAxis>();
+            var byUnit = newValues.GroupBy(x => x.values.Unit).ToList();
+            var isFirstUnit = true;
+            foreach (var unitValues in byUnit)
+            {
+                var isFirstInGroup = true;
+                string? firstSeriesName = null;
+
+                foreach (var (name, valueCollection) in unitValues)
+                {
+                    if (isFirstInGroup)
+                        firstSeriesName = name;
+                    values.Add((name, valueCollection.Values));
+
+                    var yAxis = new YAxis
+                        {
+                            SeriesName = firstSeriesName,
+                            Show = isFirstInGroup,
+                            Opposite = !isFirstUnit
+                        };
+                    if (unitValues.Key == "%")
+                    {
+                        yAxis.Min = 0.0;
+                        yAxis.Max = 100.0;
+                    }
+                    yAxes.Add(yAxis);
+                    isFirstInGroup = false;
+                }
+
+                isFirstUnit = false;
+            }
+
+            Values = values;
+            Options = CreateChartOptions(yAxes);
+        }
+        else
+        {
+            Values = new List<(string, NumericValueDto[])>();
+            Options = CreateChartOptions();
+        }
+        IsLoading = false;
+        await apexChart.UpdateSeriesAsync(false);
         StateHasChanged();
     }
 
@@ -174,55 +253,91 @@
 
     List<(string, NumericValueDto[])> Values { get; set; } = new();
 
-    ApexChartOptions<NumericValueDto> Options = new ApexChartOptions<NumericValueDto>
-        {
-            Legend = new Legend { Show = true },
-            Chart = new Chart
+    ApexChartOptions<NumericValueDto> Options = CreateChartOptions();
+
+    private static ApexChartOptions<NumericValueDto> CreateChartOptions(List<YAxis>? yAxes = null)
+    {
+        var options = new ApexChartOptions<NumericValueDto>
             {
-                Animations = new Animations
+                Colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"],
+                Legend = new Legend { Show = true },
+                Chart = new Chart
                 {
-                    Enabled = false
-                },
-                Height = "100%"
-            },
-            Stroke = new Stroke
-            {
-                Width = 1
-            },
-            Xaxis = new XAxis
-            {
-                Labels = new XAxisLabels
-                {
-                    DatetimeUTC = false
-                }
-            },
-            Grid = new Grid
-            {
-                Xaxis = new GridXAxis
-                {
-                    Lines = new Lines
+                    Animations = new Animations
                     {
-                        Show = true
-                    }
-                }
-            },
-            Tooltip = new Tooltip
-            {
-                Shared = true,
-                X = new TooltipX
+                        Enabled = false
+                    },
+                    Height = "100%"
+                },
+                Stroke = new Stroke
                 {
-                    Format = "MM-dd HH:mm"
+                    Width = 1.5
+                },
+                Xaxis = new XAxis
+                {
+                    Labels = new XAxisLabels
+                    {
+                        DatetimeUTC = false
+                    }
+                },
+                Grid = new Grid
+                {
+                    Xaxis = new GridXAxis
+                    {
+                        Lines = new Lines
+                        {
+                            Show = true
+                        }
+                    }
+                },
+                Tooltip = new Tooltip
+                {
+                    Shared = true,
+                    X = new TooltipX
+                    {
+                        Format = "MM-dd HH:mm"
+                    },
+                    FollowCursor = true
                 }
-            }
-        };
+            };
+        if (yAxes != null)
+            options.Yaxis = yAxes;
+        return options;
+    }
 
     DeviceDto[] Devices { get; set; } = [];
 
     protected override async Task OnInitializedAsync()
     {
-        DateFrom = DateUpTo = DateTime.Today;
+        isInitializing = false;
+
+        if (DateFromQ != null && DateUpToQ != null && TryParseDate(DateFromQ, out var dateFrom) && TryParseDate(DateUpToQ, out var dateUpTo))
+        {
+            DateFrom = dateFrom;
+            DateUpTo = dateUpTo;
+        }
+        else
+        {
+            DateFrom = DateUpTo = DateTime.Today;
+        }
         // DateFrom = DateTime.Today.AddDays(-7);
         // DateUpTo = DateTime.Today.AddDays(-6);
         Devices = await http.GetFromJsonAsync<DeviceDto[]>("api/devices") ?? Array.Empty<DeviceDto>();
+        if (SelectedDevicePointIds != null && SelectedDevicePointIds.Any())
+        {
+            foreach (var device in Devices)
+            {
+                foreach (var point in device.Points!)
+                {
+                    if (SelectedDevicePointIds.Contains(point.Id))
+                        point.IsSelected = true;
+                }
+            }
+
+            await SelectedValuesUpdated();
+        }
+
+        bool TryParseDate(string? s, out DateTime d)
+            => DateTime.TryParseExact(s, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out d);
     }
 }

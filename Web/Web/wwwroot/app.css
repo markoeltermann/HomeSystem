@@ -2,8 +2,20 @@ html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
-body {
-    --bs-body-font-size: 0.9rem;
+html {
+    font-size: 14px;
+}
+
+@media (max-width: 1200px) {
+    html {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 992px) {
+    html {
+        font-size: 10px;
+    }
 }
 
 a, .btn-link {
@@ -63,5 +75,9 @@ h1:focus {
 }
 
 .chart-button-narrow {
-    width: 40px;
+    width: 35px;
+}
+
+.loading-bar {
+    height: 8px;
 }

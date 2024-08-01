@@ -21,6 +21,8 @@ public partial class HomeSystemContext : DbContext
 
     public virtual DbSet<Job> Jobs { get; set; }
 
+    public virtual DbSet<Unit> Units { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresEnum("job_status", new[] { "Running", "Completed", "Failed" });
@@ -68,6 +70,7 @@ public partial class HomeSystemContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(255)
                 .HasColumnName("name");
+            entity.Property(e => e.UnitId).HasColumnName("unit_id");
 
             entity.HasOne(d => d.DataType).WithMany(p => p.DevicePoints)
                 .HasForeignKey(d => d.DataTypeId)
@@ -78,6 +81,10 @@ public partial class HomeSystemContext : DbContext
                 .HasForeignKey(d => d.DeviceId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_device_point");
+
+            entity.HasOne(d => d.Unit).WithMany(p => p.DevicePoints)
+                .HasForeignKey(d => d.UnitId)
+                .HasConstraintName("device_point_unit_id_fkey");
         });
 
         modelBuilder.Entity<EnumMember>(entity =>
@@ -111,6 +118,17 @@ public partial class HomeSystemContext : DbContext
                 .HasColumnName("name");
             entity.Property(e => e.StartTime).HasColumnName("start_time");
         });
+
+        modelBuilder.Entity<Unit>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("unit_pkey");
+
+            entity.ToTable("unit");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Name).HasColumnName("name");
+        });
+        modelBuilder.HasSequence<int>("device_point_id_seq");
 
         OnModelCreatingPartial(modelBuilder);
     }

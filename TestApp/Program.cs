@@ -2,6 +2,9 @@
 using Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using System.IO.BACnet;
+using System.IO.BACnet.Serialize;
+using System.Net;
 using ValueReaderService.Services.ChineseRoomController;
 
 var builder = new ConfigurationBuilder()
@@ -17,11 +20,16 @@ var optionsBuilder = new DbContextOptionsBuilder<HomeSystemContext>()
 
 var dbContext = new HomeSystemContext(optionsBuilder.Options);
 
-//var bacnetClient = new BacnetClient(new BacnetIpUdpProtocolTransport(0xBAC0));
 
-//bacnetClient.Start();    // go
 
-// Send WhoIs in order to get back all the Iam responses :
+
+
+
+var bacnetClient = new BacnetClient(new BacnetIpUdpProtocolTransport(0xBAC0));
+
+bacnetClient.Start();    // go
+
+//Send WhoIs in order to get back all the Iam responses :
 //bacnetClient.OnIam += BacnetClient_OnIam;
 
 //bacnetClient.RegisterAsForeignDevice("192.168.1.179", 60);
@@ -30,25 +38,25 @@ var dbContext = new HomeSystemContext(optionsBuilder.Options);
 
 //bacnetClient.WhoIs();
 
-//IPHostEntry hostEntry;
+IPHostEntry hostEntry;
 
-//hostEntry = Dns.GetHostEntry("tew-752dru");
+hostEntry = Dns.GetHostEntry("tew-752dru");
 
-////you might get more than one ip for a hostname since
-////DNS supports more than one record
+//you might get more than one ip for a hostname since
+//DNS supports more than one record
 
-//IPAddress ipAddress = null;
+IPAddress ipAddress = null;
 
-//if (hostEntry.AddressList.Length > 0)
-//{
-//    ipAddress = hostEntry.AddressList[0];
-//}
+if (hostEntry.AddressList.Length > 0)
+{
+    ipAddress = hostEntry.AddressList[0];
+}
 
-//var address = new BacnetAddress(BacnetAddressTypes.IP, ipAddress.ToString());
+var address = new BacnetAddress(BacnetAddressTypes.IP, ipAddress.ToString());
 
-//var deviceObjId = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, 60);
-//var analogValueId = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
-//var objectIdList = await bacnetClient.ReadPropertyAsync(address, deviceObjId, BacnetPropertyIds.PROP_OBJECT_LIST);
+var deviceObjId = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, 60);
+var analogValueId = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
+var objectIdList = await bacnetClient.ReadPropertyAsync(address, deviceObjId, BacnetPropertyIds.PROP_OBJECT_LIST);
 
 //var propertyReferences = new List<BacnetPropertyReference>
 //{
@@ -57,92 +65,94 @@ var dbContext = new HomeSystemContext(optionsBuilder.Options);
 
 //bacnetClient.ReadPropertyMultipleRequest(address, analogValueId, propertyReferences, out var values);
 
-//foreach (var objectId in objectIdList.Select(oid => (BacnetObjectId)oid.Value).Skip(1))
-//{
-//    //Console.WriteLine($"{objectId}");
-//    //bacnetClient.ReadPropertyAsync(address, deviceObjId, BacnetPropertyIds.PROP_ALL);
-//    //var propertyReferences = new List<BacnetPropertyReference>
-//    //    {
-//    //        new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_ALL, ASN1.BACNET_ARRAY_ALL)
-//    //    };
+foreach (var objectId in objectIdList.Select(oid => (BacnetObjectId)oid.Value).Skip(1))
+{
+    //Console.WriteLine($"{objectId}");
+    //bacnetClient.ReadPropertyAsync(address, deviceObjId, BacnetPropertyIds.PROP_ALL);
+    //var propertyReferences = new List<BacnetPropertyReference>
+    //    {
+    //        new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_ALL, ASN1.BACNET_ARRAY_ALL)
+    //    };
 
-//    var propertyReferences = new List<BacnetPropertyReference>
-//        {
-//            //new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_ALL, ASN1.BACNET_ARRAY_ALL),
-//            //new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_OBJECT_IDENTIFIER, ASN1.BACNET_ARRAY_ALL),
-//            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_OBJECT_NAME, ASN1.BACNET_ARRAY_ALL),
-//            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_OBJECT_TYPE, ASN1.BACNET_ARRAY_ALL),
-//            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_PRESENT_VALUE, ASN1.BACNET_ARRAY_ALL),
-//            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_STATE_TEXT, ASN1.BACNET_ARRAY_ALL),
-//        };
+    var propertyReferences = new List<BacnetPropertyReference>
+        {
+            //new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_ALL, ASN1.BACNET_ARRAY_ALL),
+            //new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_OBJECT_IDENTIFIER, ASN1.BACNET_ARRAY_ALL),
+            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_OBJECT_NAME, ASN1.BACNET_ARRAY_ALL),
+            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_OBJECT_TYPE, ASN1.BACNET_ARRAY_ALL),
+            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_PRESENT_VALUE, ASN1.BACNET_ARRAY_ALL),
+            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_STATE_TEXT, ASN1.BACNET_ARRAY_ALL),
+        };
 
-//    //bacnetClient.ReadPropertyMultipleRequest()
-//    //var x = new BacnetReadAccessSpecification()
-//    //bacnetClient.read
-//    bacnetClient.ReadPropertyMultipleRequest(address, objectId, propertyReferences, out var values);
-//    //var name = await bacnetClient.ReadPropertyAsync(address, objectId, BacnetPropertyIds.PROP_ALL);
-//    ////Console.WriteLine($"{objectId}: {name[0]}");
-//    //foreach (var prop in values[0].values)
-//    //{
-//    //    Console.WriteLine($"\t{prop.property} :: {string.Join(", ", prop.value)}");
-//    //}
+    //bacnetClient.ReadPropertyMultipleRequest()
+    //var x = new BacnetReadAccessSpecification()
+    //bacnetClient.read
+    bacnetClient.ReadPropertyMultipleRequest(address, objectId, propertyReferences, out var values);
+    //var name = await bacnetClient.ReadPropertyAsync(address, objectId, BacnetPropertyIds.PROP_ALL);
+    //Console.WriteLine($"{objectId}: {name[0]}");
+    //foreach (var prop in values[0].values)
+    //{
+    //    Console.WriteLine($"\t{prop.property} :: {string.Join(", ", prop.value)}");
+    //}
 
-//    var name = values[0].values[0].value[0].Value.ToString();
-//    var objType = (uint)values[0].values[1].value[0].Value;
-//    var presentValue = values[0].values[2].value[0].Value.ToString();
+    var name = values[0].values[0].value[0].Value.ToString();
+    var objType = (uint)values[0].values[1].value[0].Value;
+    var presentValue = values[0].values[2].value[0].Value.ToString();
 
-//    if ((name.StartsWith("INFO") && !name.Contains("water heater") && !name.Contains("water cooler") && !name.Contains("DX unit")
-//            && !name.Contains("water temperature") && !name.Contains("panel 2") && !name.Contains("air quality/humidity sensor") && !name.Contains("pressure"))
-//        || (name.StartsWith("CONTROL") && !name.Contains("auto mode") && (name.Contains("mode") || name.Contains("status") || name.Contains("current"))))
-//    {
-//        name = name.Replace("INFO: ", "");
-//        name = name.Replace("CONTROL: ", "");
-//        name = name.Replace("intensivity", "intensity");
+    //if ((name.StartsWith("INFO") && !name.Contains("water heater") && !name.Contains("water cooler") && !name.Contains("DX unit")
+    //        && !name.Contains("water temperature") && !name.Contains("panel 2") && !name.Contains("air quality/humidity sensor") && !name.Contains("pressure"))
+    //    || (name.StartsWith("CONTROL") && !name.Contains("auto mode") && (name.Contains("mode") || name.Contains("status") || name.Contains("current"))))
+    if ((name.Contains("water") || name.Contains("cool") || name.Contains("Water heat") || name.Contains("INFO: heating")) && !name.Contains("ECO") && !name.Contains("ALARM"))
+    {
+        name = name.Replace("INFO: ", "");
+        name = name.Replace("CONTROL: ", "");
+        name = name.Replace("intensivity", "intensity");
 
-//        name = char.ToUpper(name[0]) + name[1..];
+        name = char.ToUpper(name[0]) + name[1..];
 
-//        //if (objType != 19)
-//        //{
-//        //Console.WriteLine($"{name} :: {presentValue} ({objType})");
+        //if (objType != 19)
+        //{
+        Console.WriteLine($"{name} :: {presentValue} ({objType})");
 
-//        //var p = new DevicePoint
-//        //{
-//        //    DeviceId = 1,
-//        //    Address = objectId.ToString(),
-//        //    DataTypeId = objType switch
-//        //    {
-//        //        2 => 1,
-//        //        5 => 3,
-//        //        48 => 2,
-//        //        19 => 4,
-//        //        _ => throw new InvalidOperationException()
-//        //    },
-//        //    Name = name
-//        //};
-//        //if (objType == 19)
-//        //{
-//        //    var enumMembers = values[0].values[3].value;
-//        //    for (int i = 0; i < enumMembers.Count; i++)
-//        //    {
-//        //        var member = enumMembers[i];
-//        //        p.EnumMembers.Add(new EnumMember
-//        //        {
-//        //            Name = member.Value.ToString(),
-//        //            Value = i + 1
-//        //        });
-//        //    }
-//        //}
+        var p = new DevicePoint
+        {
+            //Id = -1,
+            DeviceId = 1,
+            Address = objectId.ToString(),
+            DataTypeId = objType switch
+            {
+                2 => 1,
+                5 => 3,
+                48 => 2,
+                19 => 4,
+                _ => throw new InvalidOperationException()
+            },
+            Name = name
+        };
+        //if (objType == 19)
+        //{
+        //    var enumMembers = values[0].values[3].value;
+        //    for (int i = 0; i < enumMembers.Count; i++)
+        //    {
+        //        var member = enumMembers[i];
+        //        p.EnumMembers.Add(new EnumMember
+        //        {
+        //            Name = member.Value.ToString(),
+        //            Value = i + 1
+        //        });
+        //    }
+        //}
 
-//        //dbContext.DevicePoints.Add(p);
+        dbContext.DevicePoints.Add(p);
 
-//        //dbContext.SaveChanges();
-//        //}
-//        //else
-//        //{
-//        //    Console.WriteLine($"{name} :: {presentValue} ({objType}) :: ({string.Join(", ", values[0].values[3].value)})");
-//        //}
-//    }
-//}
+        dbContext.SaveChanges();
+        //}
+        //else
+        //{
+        //    Console.WriteLine($"{name} :: {presentValue} ({objType}) :: ({string.Join(", ", values[0].values[3].value)})");
+        //}
+    }
+}
 
 //var points = dbContext.DevicePoints.ToList();
 
@@ -264,57 +274,57 @@ var dbContext = new HomeSystemContext(optionsBuilder.Options);
 
 //return;
 
-var deviceAddresses = new[]
-{
-    ("Kabinet",
-    new DeviceAddress
-    {
-        IP = "tew-752dru",
-        Port = 6666,
-        DeviceId = "107073648cce4eddf8a4",
-        LocalKey = "e8321b5c4e54003b"
-    }),
-    ("Magamistuba",
-    new DeviceAddress
-    {
-        IP = "tew-752dru",
-        Port = 6670,
-        DeviceId = "1070736424a16038cd04",
-        LocalKey = "405c93048404b2bc"
-    }),
-    ("I k pesuruum",
-    new DeviceAddress
-    {
-        IP = "tew-752dru",
-        Port = 6669,
-        DeviceId = "107073648cce4ede49bf",
-        LocalKey = "3384a4b10c15d635"
-    }),
-    ("Elutuba",
-    new DeviceAddress
-    {
-        IP = "tew-752dru",
-        Port = 6668,
-        DeviceId = "107073648cce4edda150",
-        LocalKey = "aea7ea5709cebf54"
-    }),
-    ("II k pesuruum",
-    new DeviceAddress
-    {
-        IP = "tew-752dru",
-        Port = 6667,
-        DeviceId = "1070736424a16038cd93",
-        LocalKey = "ccbebeaf9fbc6892"
-    }),
-    ("Kassituba",
-    new DeviceAddress
-    {
-        IP = "tew-752dru",
-        Port = 6665,
-        DeviceId = "107073648cce4edddfde",
-        LocalKey = "6fccb15132fa3eaa"
-    })
-};
+//var deviceAddresses = new[]
+//{
+//    ("Kabinet",
+//    new DeviceAddress
+//    {
+//        IP = "tew-752dru",
+//        Port = 6666,
+//        DeviceId = "107073648cce4eddf8a4",
+//        LocalKey = "e8321b5c4e54003b"
+//    }),
+//    ("Magamistuba",
+//    new DeviceAddress
+//    {
+//        IP = "tew-752dru",
+//        Port = 6670,
+//        DeviceId = "1070736424a16038cd04",
+//        LocalKey = "405c93048404b2bc"
+//    }),
+//    ("I k pesuruum",
+//    new DeviceAddress
+//    {
+//        IP = "tew-752dru",
+//        Port = 6669,
+//        DeviceId = "107073648cce4ede49bf",
+//        LocalKey = "3384a4b10c15d635"
+//    }),
+//    ("Elutuba",
+//    new DeviceAddress
+//    {
+//        IP = "tew-752dru",
+//        Port = 6668,
+//        DeviceId = "107073648cce4edda150",
+//        LocalKey = "aea7ea5709cebf54"
+//    }),
+//    ("II k pesuruum",
+//    new DeviceAddress
+//    {
+//        IP = "tew-752dru",
+//        Port = 6667,
+//        DeviceId = "1070736424a16038cd93",
+//        LocalKey = "ccbebeaf9fbc6892"
+//    }),
+//    ("Kassituba",
+//    new DeviceAddress
+//    {
+//        IP = "tew-752dru",
+//        Port = 6665,
+//        DeviceId = "107073648cce4edddfde",
+//        LocalKey = "6fccb15132fa3eaa"
+//    })
+//};
 
 //foreach ((var deviceName, var deviceAddress) in deviceAddresses)
 //{
@@ -352,55 +362,55 @@ var deviceAddresses = new[]
 
 //return;
 
-int i = 0;
-while (i < deviceAddresses.Length)
-{
-    (var deviceName, var deviceAddress) = deviceAddresses[i];
-    try
-    {
-        TuyaLocalResponse response;
-        //var device = new TuyaDevice(ip: "tew-752dru", port: 6666, localKey: "3384a4b10c15d635", deviceId: "107073648cce4ede49bf", protocolVersion: TuyaProtocolVersion.V33);
-        //using (var device = new TuyaDevice(ip: "tew-752dru", port: 6668, localKey: "aea7ea5709cebf54", deviceId: "107073648cce4edda150", protocolVersion: TuyaProtocolVersion.V33))
-        //using (var device = new TuyaDevice(ip: "tew-752dru", port: 6666, localKey: "405477382766503b", deviceId: "107073648cce4eddf8a4", protocolVersion: TuyaProtocolVersion.V33, receiveTimeout: 200))
-        using (var device = new TuyaDevice(deviceAddress.IP, deviceAddress.LocalKey, deviceAddress.DeviceId, TuyaProtocolVersion.V33, deviceAddress.Port!.Value, 500))
-        //using (var device = new TuyaDevice(ip: "tew-752dru", port: 6667, localKey: "aea7ea5709cebf54", deviceId: "107073648cce4edda150", protocolVersion: TuyaProtocolVersion.V33, receiveTimeout: 5000))
-        {
-            var dps = await device.GetDpsAsync();
+//int i = 0;
+//while (i < deviceAddresses.Length)
+//{
+//    (var deviceName, var deviceAddress) = deviceAddresses[i];
+//    try
+//    {
+//        TuyaLocalResponse response;
+//        //var device = new TuyaDevice(ip: "tew-752dru", port: 6666, localKey: "3384a4b10c15d635", deviceId: "107073648cce4ede49bf", protocolVersion: TuyaProtocolVersion.V33);
+//        //using (var device = new TuyaDevice(ip: "tew-752dru", port: 6668, localKey: "aea7ea5709cebf54", deviceId: "107073648cce4edda150", protocolVersion: TuyaProtocolVersion.V33))
+//        //using (var device = new TuyaDevice(ip: "tew-752dru", port: 6666, localKey: "405477382766503b", deviceId: "107073648cce4eddf8a4", protocolVersion: TuyaProtocolVersion.V33, receiveTimeout: 200))
+//        using (var device = new TuyaDevice(deviceAddress.IP, deviceAddress.LocalKey, deviceAddress.DeviceId, TuyaProtocolVersion.V33, deviceAddress.Port!.Value, 500))
+//        //using (var device = new TuyaDevice(ip: "tew-752dru", port: 6667, localKey: "aea7ea5709cebf54", deviceId: "107073648cce4edda150", protocolVersion: TuyaProtocolVersion.V33, receiveTimeout: 5000))
+//        {
+//            var dps = await device.GetDpsAsync();
 
-            Console.WriteLine(deviceName);
-            foreach ((var id, var value) in dps)
-            {
-                Console.WriteLine($"{id}: {value}::{value?.GetType().Name}");
-            }
-            Console.WriteLine();
+//            Console.WriteLine(deviceName);
+//            foreach ((var id, var value) in dps)
+//            {
+//                Console.WriteLine($"{id}: {value}::{value?.GetType().Name}");
+//            }
+//            Console.WriteLine();
 
-            ////Console.WriteLine(string.Join("\n", dps));
+//            ////Console.WriteLine(string.Join("\n", dps));
 
-            ////byte[] request = device.EncodeRequest(TuyaCommand.CONTROL, device.FillJson("{\"dps\":{\"" + i + "\":null}}"));
-            //byte[] request = device.EncodeRequest(TuyaCommand.DP_QUERY, device.FillJson("{\"dps\":{\"" + i + "\":null}}"));
-            //byte[] encryptedResponse = await device.SendAsync(request);
-            ////encryptedResponse = StringToByteArrayFastest("42416f68626d64366147393149465231c052e611d4e90d3f044ecfeb0aa17ce2c9653977c60de4ed576ff7b8e503d9d82024ef6fb81c08c2a5208db5a1c2eb28b78321348815bd1cad65d8708f1cf228fb79d058e2f1db1f2818d065d6fd99469e5607fbf2b31494904fe8517518c45f6cde1a2cab10d3f585e95797f1ac644e91a920d54c8f38e40e659385888b93dfd2a6e732b1ededb2bfad09fe679a0f810e07c6f9226860af0b9595709234b65ef2eed3448f9ca5014c19ce835b3167b801580a9c19ae3e306e3a66f508128fd4");
-            ////Console.WriteLine(BitConverter.ToString(encryptedResponse));
+//            ////byte[] request = device.EncodeRequest(TuyaCommand.CONTROL, device.FillJson("{\"dps\":{\"" + i + "\":null}}"));
+//            //byte[] request = device.EncodeRequest(TuyaCommand.DP_QUERY, device.FillJson("{\"dps\":{\"" + i + "\":null}}"));
+//            //byte[] encryptedResponse = await device.SendAsync(request);
+//            ////encryptedResponse = StringToByteArrayFastest("42416f68626d64366147393149465231c052e611d4e90d3f044ecfeb0aa17ce2c9653977c60de4ed576ff7b8e503d9d82024ef6fb81c08c2a5208db5a1c2eb28b78321348815bd1cad65d8708f1cf228fb79d058e2f1db1f2818d065d6fd99469e5607fbf2b31494904fe8517518c45f6cde1a2cab10d3f585e95797f1ac644e91a920d54c8f38e40e659385888b93dfd2a6e732b1ededb2bfad09fe679a0f810e07c6f9226860af0b9595709234b65ef2eed3448f9ca5014c19ce835b3167b801580a9c19ae3e306e3a66f508128fd4");
+//            ////Console.WriteLine(BitConverter.ToString(encryptedResponse));
 
-            ////File.WriteAllBytes("response.bin", encryptedResponse);
+//            ////File.WriteAllBytes("response.bin", encryptedResponse);
 
-            //response = device.DecodeResponse(encryptedResponse);
-        }
+//            //response = device.DecodeResponse(encryptedResponse);
+//        }
 
-        //var result = TestParser.DecodeResponse(encryptedResponse, Encoding.UTF8.GetBytes(device.LocalKey));
+//        //var result = TestParser.DecodeResponse(encryptedResponse, Encoding.UTF8.GetBytes(device.LocalKey));
 
-        //Console.WriteLine($"Response JSON: {response.JSON}");
-    }
-    catch (Exception)
-    {
-        Console.WriteLine($"Reading dp {i} failed");
-    }
-    i++;
+//        //Console.WriteLine($"Response JSON: {response.JSON}");
+//    }
+//    catch (Exception)
+//    {
+//        Console.WriteLine($"Reading dp {i} failed");
+//    }
+//    i++;
 
-    //var l = Console.ReadLine();
-    //if (l == "x")
-    //    return;
-}
+//    //var l = Console.ReadLine();
+//    //if (l == "x")
+//    //    return;
+//}
 
 static byte[] StringToByteArrayFastest(string hex)
 {

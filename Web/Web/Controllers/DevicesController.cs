@@ -22,7 +22,8 @@ namespace Web.Controllers
                     {
                         Id = dp.Id,
                         Name = dp.Name,
-                        DataTypeName = dp.DataType.Name
+                        DataTypeName = dp.DataType.Name,
+                        Unit = dp.Unit!.Name
                     }).ToArray()
                 })
                 .ToArrayAsync();
