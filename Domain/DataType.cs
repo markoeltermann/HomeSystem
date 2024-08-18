@@ -9,5 +9,5 @@ public partial class DataType
 
     public string Name { get; set; } = null!;
 
-    public virtual ICollection<DevicePoint> DevicePoints { get; } = new List<DevicePoint>();
+    public virtual ICollection<DevicePoint> DevicePoints { get; set; } = new List<DevicePoint>();
 }

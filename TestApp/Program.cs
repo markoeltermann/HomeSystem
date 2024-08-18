@@ -2,9 +2,13 @@
 using Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Kiota.Abstractions.Authentication;
+using Microsoft.Kiota.Http.HttpClientLibrary;
+using MyUplinkConnector.Client;
 using System.IO.BACnet;
 using System.IO.BACnet.Serialize;
 using System.Net;
+using System.Text.Json;
 using ValueReaderService.Services.ChineseRoomController;
 
 var builder = new ConfigurationBuilder()
@@ -25,134 +29,134 @@ var dbContext = new HomeSystemContext(optionsBuilder.Options);
 
 
 
-var bacnetClient = new BacnetClient(new BacnetIpUdpProtocolTransport(0xBAC0));
+//var bacnetClient = new BacnetClient(new BacnetIpUdpProtocolTransport(0xBAC0));
 
-bacnetClient.Start();    // go
+//bacnetClient.Start();    // go
 
-//Send WhoIs in order to get back all the Iam responses :
-//bacnetClient.OnIam += BacnetClient_OnIam;
+////Send WhoIs in order to get back all the Iam responses :
+////bacnetClient.OnIam += BacnetClient_OnIam;
 
-//bacnetClient.RegisterAsForeignDevice("192.168.1.179", 60);
+////bacnetClient.RegisterAsForeignDevice("192.168.1.179", 60);
 
-//bacnetClient.RemoteWhoIs("192.168.1.179");
+////bacnetClient.RemoteWhoIs("192.168.1.179");
 
-//bacnetClient.WhoIs();
+////bacnetClient.WhoIs();
 
-IPHostEntry hostEntry;
+//IPHostEntry hostEntry;
 
-hostEntry = Dns.GetHostEntry("tew-752dru");
+//hostEntry = Dns.GetHostEntry("tew-752dru");
 
-//you might get more than one ip for a hostname since
-//DNS supports more than one record
+////you might get more than one ip for a hostname since
+////DNS supports more than one record
 
-IPAddress ipAddress = null;
+//IPAddress ipAddress = null;
 
-if (hostEntry.AddressList.Length > 0)
-{
-    ipAddress = hostEntry.AddressList[0];
-}
-
-var address = new BacnetAddress(BacnetAddressTypes.IP, ipAddress.ToString());
-
-var deviceObjId = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, 60);
-var analogValueId = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
-var objectIdList = await bacnetClient.ReadPropertyAsync(address, deviceObjId, BacnetPropertyIds.PROP_OBJECT_LIST);
-
-//var propertyReferences = new List<BacnetPropertyReference>
+//if (hostEntry.AddressList.Length > 0)
 //{
-//    new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_ALL, ASN1.BACNET_ARRAY_ALL)
-//};
+//    ipAddress = hostEntry.AddressList[0];
+//}
 
-//bacnetClient.ReadPropertyMultipleRequest(address, analogValueId, propertyReferences, out var values);
+//var address = new BacnetAddress(BacnetAddressTypes.IP, ipAddress.ToString());
 
-foreach (var objectId in objectIdList.Select(oid => (BacnetObjectId)oid.Value).Skip(1))
-{
-    //Console.WriteLine($"{objectId}");
-    //bacnetClient.ReadPropertyAsync(address, deviceObjId, BacnetPropertyIds.PROP_ALL);
-    //var propertyReferences = new List<BacnetPropertyReference>
-    //    {
-    //        new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_ALL, ASN1.BACNET_ARRAY_ALL)
-    //    };
+//var deviceObjId = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, 60);
+//var analogValueId = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
+//var objectIdList = await bacnetClient.ReadPropertyAsync(address, deviceObjId, BacnetPropertyIds.PROP_OBJECT_LIST);
 
-    var propertyReferences = new List<BacnetPropertyReference>
-        {
-            //new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_ALL, ASN1.BACNET_ARRAY_ALL),
-            //new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_OBJECT_IDENTIFIER, ASN1.BACNET_ARRAY_ALL),
-            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_OBJECT_NAME, ASN1.BACNET_ARRAY_ALL),
-            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_OBJECT_TYPE, ASN1.BACNET_ARRAY_ALL),
-            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_PRESENT_VALUE, ASN1.BACNET_ARRAY_ALL),
-            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_STATE_TEXT, ASN1.BACNET_ARRAY_ALL),
-        };
+////var propertyReferences = new List<BacnetPropertyReference>
+////{
+////    new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_ALL, ASN1.BACNET_ARRAY_ALL)
+////};
 
-    //bacnetClient.ReadPropertyMultipleRequest()
-    //var x = new BacnetReadAccessSpecification()
-    //bacnetClient.read
-    bacnetClient.ReadPropertyMultipleRequest(address, objectId, propertyReferences, out var values);
-    //var name = await bacnetClient.ReadPropertyAsync(address, objectId, BacnetPropertyIds.PROP_ALL);
-    //Console.WriteLine($"{objectId}: {name[0]}");
-    //foreach (var prop in values[0].values)
-    //{
-    //    Console.WriteLine($"\t{prop.property} :: {string.Join(", ", prop.value)}");
-    //}
+////bacnetClient.ReadPropertyMultipleRequest(address, analogValueId, propertyReferences, out var values);
 
-    var name = values[0].values[0].value[0].Value.ToString();
-    var objType = (uint)values[0].values[1].value[0].Value;
-    var presentValue = values[0].values[2].value[0].Value.ToString();
+//foreach (var objectId in objectIdList.Select(oid => (BacnetObjectId)oid.Value).Skip(1))
+//{
+//    //Console.WriteLine($"{objectId}");
+//    //bacnetClient.ReadPropertyAsync(address, deviceObjId, BacnetPropertyIds.PROP_ALL);
+//    //var propertyReferences = new List<BacnetPropertyReference>
+//    //    {
+//    //        new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_ALL, ASN1.BACNET_ARRAY_ALL)
+//    //    };
 
-    //if ((name.StartsWith("INFO") && !name.Contains("water heater") && !name.Contains("water cooler") && !name.Contains("DX unit")
-    //        && !name.Contains("water temperature") && !name.Contains("panel 2") && !name.Contains("air quality/humidity sensor") && !name.Contains("pressure"))
-    //    || (name.StartsWith("CONTROL") && !name.Contains("auto mode") && (name.Contains("mode") || name.Contains("status") || name.Contains("current"))))
-    if ((name.Contains("water") || name.Contains("cool") || name.Contains("Water heat") || name.Contains("INFO: heating")) && !name.Contains("ECO") && !name.Contains("ALARM"))
-    {
-        name = name.Replace("INFO: ", "");
-        name = name.Replace("CONTROL: ", "");
-        name = name.Replace("intensivity", "intensity");
+//    var propertyReferences = new List<BacnetPropertyReference>
+//        {
+//            //new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_ALL, ASN1.BACNET_ARRAY_ALL),
+//            //new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_OBJECT_IDENTIFIER, ASN1.BACNET_ARRAY_ALL),
+//            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_OBJECT_NAME, ASN1.BACNET_ARRAY_ALL),
+//            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_OBJECT_TYPE, ASN1.BACNET_ARRAY_ALL),
+//            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_PRESENT_VALUE, ASN1.BACNET_ARRAY_ALL),
+//            new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_STATE_TEXT, ASN1.BACNET_ARRAY_ALL),
+//        };
 
-        name = char.ToUpper(name[0]) + name[1..];
+//    //bacnetClient.ReadPropertyMultipleRequest()
+//    //var x = new BacnetReadAccessSpecification()
+//    //bacnetClient.read
+//    bacnetClient.ReadPropertyMultipleRequest(address, objectId, propertyReferences, out var values);
+//    //var name = await bacnetClient.ReadPropertyAsync(address, objectId, BacnetPropertyIds.PROP_ALL);
+//    //Console.WriteLine($"{objectId}: {name[0]}");
+//    //foreach (var prop in values[0].values)
+//    //{
+//    //    Console.WriteLine($"\t{prop.property} :: {string.Join(", ", prop.value)}");
+//    //}
 
-        //if (objType != 19)
-        //{
-        Console.WriteLine($"{name} :: {presentValue} ({objType})");
+//    var name = values[0].values[0].value[0].Value.ToString();
+//    var objType = (uint)values[0].values[1].value[0].Value;
+//    var presentValue = values[0].values[2].value[0].Value.ToString();
 
-        var p = new DevicePoint
-        {
-            //Id = -1,
-            DeviceId = 1,
-            Address = objectId.ToString(),
-            DataTypeId = objType switch
-            {
-                2 => 1,
-                5 => 3,
-                48 => 2,
-                19 => 4,
-                _ => throw new InvalidOperationException()
-            },
-            Name = name
-        };
-        //if (objType == 19)
-        //{
-        //    var enumMembers = values[0].values[3].value;
-        //    for (int i = 0; i < enumMembers.Count; i++)
-        //    {
-        //        var member = enumMembers[i];
-        //        p.EnumMembers.Add(new EnumMember
-        //        {
-        //            Name = member.Value.ToString(),
-        //            Value = i + 1
-        //        });
-        //    }
-        //}
+//    //if ((name.StartsWith("INFO") && !name.Contains("water heater") && !name.Contains("water cooler") && !name.Contains("DX unit")
+//    //        && !name.Contains("water temperature") && !name.Contains("panel 2") && !name.Contains("air quality/humidity sensor") && !name.Contains("pressure"))
+//    //    || (name.StartsWith("CONTROL") && !name.Contains("auto mode") && (name.Contains("mode") || name.Contains("status") || name.Contains("current"))))
+//    if ((name.Contains("water") || name.Contains("cool") || name.Contains("Water heat") || name.Contains("INFO: heating")) && !name.Contains("ECO") && !name.Contains("ALARM"))
+//    {
+//        name = name.Replace("INFO: ", "");
+//        name = name.Replace("CONTROL: ", "");
+//        name = name.Replace("intensivity", "intensity");
 
-        dbContext.DevicePoints.Add(p);
+//        name = char.ToUpper(name[0]) + name[1..];
 
-        dbContext.SaveChanges();
-        //}
-        //else
-        //{
-        //    Console.WriteLine($"{name} :: {presentValue} ({objType}) :: ({string.Join(", ", values[0].values[3].value)})");
-        //}
-    }
-}
+//        //if (objType != 19)
+//        //{
+//        Console.WriteLine($"{name} :: {presentValue} ({objType})");
+
+//        var p = new DevicePoint
+//        {
+//            //Id = -1,
+//            DeviceId = 1,
+//            Address = objectId.ToString(),
+//            DataTypeId = objType switch
+//            {
+//                2 => 1,
+//                5 => 3,
+//                48 => 2,
+//                19 => 4,
+//                _ => throw new InvalidOperationException()
+//            },
+//            Name = name
+//        };
+//        //if (objType == 19)
+//        //{
+//        //    var enumMembers = values[0].values[3].value;
+//        //    for (int i = 0; i < enumMembers.Count; i++)
+//        //    {
+//        //        var member = enumMembers[i];
+//        //        p.EnumMembers.Add(new EnumMember
+//        //        {
+//        //            Name = member.Value.ToString(),
+//        //            Value = i + 1
+//        //        });
+//        //    }
+//        //}
+
+//        dbContext.DevicePoints.Add(p);
+
+//        dbContext.SaveChanges();
+//        //}
+//        //else
+//        //{
+//        //    Console.WriteLine($"{name} :: {presentValue} ({objType}) :: ({string.Join(", ", values[0].values[3].value)})");
+//        //}
+//    }
+//}
 
 //var points = dbContext.DevicePoints.ToList();
 
@@ -448,3 +452,54 @@ static int GetHexVal(char hex)
 //var text = System.Text.Encoding.UTF8.GetString(bytes);
 
 //Console.ReadLine();
+
+
+//using var httpClient = new HttpClient();
+
+////var authorizeRequest = new
+////{
+////    client_id = "6d34a8a5-0c56-4f0e-a492-b8b167977b80",
+////    client_secret = "8BACD656E79135A7A39980A1E074E77C"
+////};
+
+//var content = new FormUrlEncodedContent([
+//    new KeyValuePair<string, string>("client_id", "6d34a8a5-0c56-4f0e-a492-b8b167977b80"),
+//    new KeyValuePair<string, string>("client_secret", "8BACD656E79135A7A39980A1E074E77C"),
+//    new KeyValuePair<string, string>("response_type", "code"),
+//    new KeyValuePair<string, string>("grant_type", "client_credentials"),
+//    new KeyValuePair<string, string>("scope", "READSYSTEM WRITESYSTEM"),
+//    new KeyValuePair<string, string>("redirect_uri", "https://test.com"),
+//    ]);
+
+
+
+//var response = await httpClient.PostAsync("https://api.myuplink.com/oauth/token", content);
+
+//var responseText = await response.Content.ReadAsStringAsync();
+
+
+//var authProvider = new AnonymousAuthenticationProvider();
+//// Create request adapter using the HttpClient-based implementation
+//var adapter = new HttpClientRequestAdapter(authProvider);
+//// Create the API client
+//var client = new MyUplinkClient(adapter);
+
+
+//Console.WriteLine(responseText);
+
+using var httpClient = new HttpClient();
+httpClient.Timeout = TimeSpan.FromMinutes(10);
+
+//var content = new StringContent("{\"id\":1,\"method\":\"HTTP.GET\",\"params\":{\"url\":\"http://10.33.53.21/rpc/Shelly.GetDeviceInfo\"}}' http://${SHELLY}/rpc");
+
+//var response = await httpClient.PostAsync("http://192.168.1.130:6700/rpc", content);
+
+var response = await httpClient.GetAsync("http://192.168.1.130:6700/rpc/Shelly.GetStatus");
+//var response = await httpClient.GetAsync("http://192.168.1.130:6700/rpc/Light.Set?id=0&brightness=27.09");
+
+var responseText = await response.Content.ReadAsStringAsync();
+
+using var jDoc = JsonDocument.Parse(responseText);
+responseText = JsonSerializer.Serialize(jDoc, new JsonSerializerOptions { WriteIndented = true });
+
+Console.WriteLine(responseText);

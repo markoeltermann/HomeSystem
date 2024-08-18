@@ -21,7 +21,7 @@ public partial class DevicePoint
 
     public virtual Device Device { get; set; } = null!;
 
-    public virtual ICollection<EnumMember> EnumMembers { get; } = new List<EnumMember>();
+    public virtual ICollection<EnumMember> EnumMembers { get; set; } = new List<EnumMember>();
 
     public virtual Unit? Unit { get; set; }
 }

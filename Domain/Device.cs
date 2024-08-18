@@ -13,5 +13,7 @@ public partial class Device
 
     public bool IsEnabled { get; set; }
 
-    public virtual ICollection<DevicePoint> DevicePoints { get; } = new List<DevicePoint>();
+    public string Type { get; set; } = null!;
+
+    public virtual ICollection<DevicePoint> DevicePoints { get; set; } = new List<DevicePoint>();
 }

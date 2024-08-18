@@ -1,57 +1,47 @@
 ﻿using Domain;
 
-namespace ValueReaderService.Services
+namespace ValueReaderService.Services;
+
+public abstract class DeviceReader(HomeSystemContext dbContext, ILogger<DeviceReader> logger)
 {
-    public abstract class DeviceReader
+    public async Task ExecuteAsync(Device device, DateTime timestamp)
     {
-        protected readonly HomeSystemContext dbContext;
-        protected readonly ILogger<DeviceReader> logger;
-
-        protected DeviceReader(HomeSystemContext dbContext, ILogger<DeviceReader> logger)
+        Job? job = null;
+        try
         {
-            this.dbContext = dbContext;
-            this.logger = logger;
+            job = new Job
+            {
+                Name = GetType().Name,
+                StartTime = DateTime.UtcNow,
+                Status = JobStatus.Running
+            };
+            dbContext.Jobs.Add(job);
+            await dbContext.SaveChangesAsync();
+
+            var isSuccess = await ExecuteAsyncInternal(device, timestamp);
+
+            job.Status = isSuccess ? JobStatus.Completed : JobStatus.Failed;
         }
-
-        public async Task ExecuteAsync(Device device, DateTime timestamp)
+        catch (Exception e)
         {
-            Job? job = null;
-            try
+            logger.LogError(e, "Device reader execution has failed");
+            if (job != null)
+                job.Status = JobStatus.Failed;
+        }
+        finally
+        {
+            if (job != null)
             {
-                job = new Job
+                try
                 {
-                    Name = GetType().Name,
-                    StartTime = DateTime.UtcNow,
-                    Status = JobStatus.Running
-                };
-                dbContext.Jobs.Add(job);
-                await dbContext.SaveChangesAsync();
-
-                var isSuccess = await ExecuteAsyncInternal(device, timestamp);
-
-                job.Status = isSuccess ? JobStatus.Completed : JobStatus.Failed;
-            }
-            catch (Exception e)
-            {
-                logger.LogError(e, "Device reader execution has failed");
-                if (job != null)
-                    job.Status = JobStatus.Failed;
-            }
-            finally
-            {
-                if (job != null)
+                    await dbContext.SaveChangesAsync();
+                }
+                catch (Exception)
                 {
-                    try
-                    {
-                        await dbContext.SaveChangesAsync();
-                    }
-                    catch (Exception)
-                    {
-                    }
                 }
             }
         }
-
-        protected abstract Task<bool> ExecuteAsyncInternal(Device device, DateTime timestamp);
     }
+
+    protected abstract Task<bool> ExecuteAsyncInternal(Device device, DateTime timestamp);
 }

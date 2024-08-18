@@ -1,5 +1,6 @@
 using Domain;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using NLog.Extensions.Logging;
 using SharedServices;
 using ValueReaderService;
@@ -24,7 +25,10 @@ IHost host = Host.CreateDefaultBuilder(args)
 
         services.AddScoped<BacnetDeviceReader>();
         services.AddScoped<ChineseRoomControllerReader>();
+        services.AddScoped<ShellyDeviceReader>();
         services.AddSingleton<PointValueStore>();
+
+        services.AddHttpClient<ShellyDeviceReader>();
     })
     .UseWindowsService(options =>
     {

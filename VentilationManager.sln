@@ -21,9 +21,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TuyaNet", "tuyanet-main\Tuy
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharedServices", "SharedServices\SharedServices.csproj", "{4D88312B-1C8A-4F2B-B014-3A5CECFD95B9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web", "Web\Web\Web.csproj", "{43AF6F86-7766-42E4-8167-199D4D2ACFDC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Web", "Web\Web\Web.csproj", "{43AF6F86-7766-42E4-8167-199D4D2ACFDC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web.Client", "Web\Web.Client\Web.Client.csproj", "{FF60B74C-DE82-42D9-80C2-EDD927F5A913}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Web.Client", "Web\Web.Client\Web.Client.csproj", "{FF60B74C-DE82-42D9-80C2-EDD927F5A913}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyUplinkConnector", "MyUplinkConnector\MyUplinkConnector.csproj", "{38980C7C-B50B-4132-852E-20C8AC386EA5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -63,6 +65,10 @@ Global
 		{FF60B74C-DE82-42D9-80C2-EDD927F5A913}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FF60B74C-DE82-42D9-80C2-EDD927F5A913}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FF60B74C-DE82-42D9-80C2-EDD927F5A913}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38980C7C-B50B-4132-852E-20C8AC386EA5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38980C7C-B50B-4132-852E-20C8AC386EA5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38980C7C-B50B-4132-852E-20C8AC386EA5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38980C7C-B50B-4132-852E-20C8AC386EA5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

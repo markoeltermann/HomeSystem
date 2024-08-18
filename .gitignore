@@ -22,3 +22,6 @@
 *.csproj.user
 /Domain/ScaffoldDatabase.cmd
 *.pubxml.user
+*/bin/*
+*/obj/*
+*.kiota.log

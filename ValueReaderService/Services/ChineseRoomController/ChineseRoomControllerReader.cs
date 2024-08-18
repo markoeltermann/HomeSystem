@@ -3,54 +3,47 @@ using Domain;
 using SharedServices;
 using System.Text.Json;
 
-namespace ValueReaderService.Services.ChineseRoomController
+namespace ValueReaderService.Services.ChineseRoomController;
+
+public class ChineseRoomControllerReader(HomeSystemContext dbContext, ILogger<DeviceReader> logger, PointValueStore pointValueStore)
+    : DeviceReader(dbContext, logger)
 {
-    public class ChineseRoomControllerReader : DeviceReader
+    protected override async Task<bool> ExecuteAsyncInternal(Device device, DateTime timestamp)
     {
-        private readonly PointValueStore pointValueStore;
+        if (device.Address is null)
+            return false;
 
-        public ChineseRoomControllerReader(HomeSystemContext dbContext, ILogger<DeviceReader> logger, PointValueStore pointValueStore) : base(dbContext, logger)
+        var address = JsonSerializer.Deserialize<DeviceAddress>(device.Address);
+        if (address is null)
+            return false;
+
+        Dictionary<int, object> dps;
+
+        using (var tuyaDevice = new TuyaDevice(address.IP, address.LocalKey, address.DeviceId, TuyaProtocolVersion.V33, address.Port!.Value, 500))
         {
-            this.pointValueStore = pointValueStore;
+            dps = await tuyaDevice.GetDpsAsync();
         }
 
-        protected override async Task<bool> ExecuteAsyncInternal(Device device, DateTime timestamp)
+        foreach (var devicePoint in device.DevicePoints)
         {
-            if (device.Address is null)
-                return false;
-
-            var address = JsonSerializer.Deserialize<DeviceAddress>(device.Address);
-            if (address is null)
-                return false;
-
-            Dictionary<int, object> dps;
-
-            using (var tuyaDevice = new TuyaDevice(address.IP, address.LocalKey, address.DeviceId, TuyaProtocolVersion.V33, address.Port!.Value, 500))
+            var addressInt = int.Parse(devicePoint.Address);
+            var rawValue = dps[addressInt];
+            string? value = null;
+            switch (addressInt)
             {
-                dps = await tuyaDevice.GetDpsAsync();
+                case 2: // temp. setpoint
+                case 3: // temperature
+                case 102: // floor temperature
+                    value = (((long)rawValue) / 2.0).ToString("0.0");
+                    break;
+                default:
+                    break;
             }
 
-            foreach (var devicePoint in device.DevicePoints)
-            {
-                var addressInt = int.Parse(devicePoint.Address);
-                var rawValue = dps[addressInt];
-                string? value = null;
-                switch (addressInt)
-                {
-                    case 2: // temp. setpoint
-                    case 3: // temperature
-                    case 102: // floor temperature
-                        value = (((long)rawValue) / 2.0).ToString("0.0");
-                        break;
-                    default:
-                        break;
-                }
-
-                if (value != null)
-                    pointValueStore.StoreValue(device.Id, devicePoint.Id, timestamp, value);
-            }
-
-            return true;
+            if (value != null)
+                pointValueStore.StoreValue(device.Id, devicePoint.Id, timestamp, value);
         }
+
+        return true;
     }
 }

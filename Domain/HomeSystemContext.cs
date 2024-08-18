@@ -53,6 +53,7 @@ public partial class HomeSystemContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(255)
                 .HasColumnName("name");
+            entity.Property(e => e.Type).HasColumnName("type");
         });
 
         modelBuilder.Entity<DevicePoint>(entity =>
