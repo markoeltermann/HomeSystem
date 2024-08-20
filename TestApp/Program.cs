@@ -494,7 +494,7 @@ httpClient.Timeout = TimeSpan.FromMinutes(10);
 
 //var response = await httpClient.PostAsync("http://192.168.1.130:6700/rpc", content);
 
-var response = await httpClient.GetAsync("http://192.168.1.130:6700/rpc/Shelly.GetStatus");
+var response = await httpClient.GetAsync("http://192.168.1.130:6701/rpc/Shelly.GetStatus");
 //var response = await httpClient.GetAsync("http://192.168.1.130:6700/rpc/Light.Set?id=0&brightness=27.09");
 
 var responseText = await response.Content.ReadAsStringAsync();

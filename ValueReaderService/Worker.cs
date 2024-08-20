@@ -73,8 +73,8 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
         {
             using var scope = serviceProvider.CreateScope();
 
-            var bacnetClient = scope.ServiceProvider.GetRequiredService<TReader>();
-            await bacnetClient.ExecuteAsync(device, wakeTime);
+            var reader = scope.ServiceProvider.GetRequiredService<TReader>();
+            await reader.ExecuteAsync(device, wakeTime);
         }, CancellationToken.None));
     }
 
