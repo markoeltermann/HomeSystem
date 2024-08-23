@@ -28,6 +28,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddScoped<ShellyDeviceReader>();
         services.AddSingleton<PointValueStore>();
 
+        services.AddHttpClient<BacnetDeviceReader>();
         services.AddHttpClient<ShellyDeviceReader>();
     })
     .UseWindowsService(options =>

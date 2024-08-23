@@ -1,50 +1,57 @@
 ﻿using Domain;
+using Microsoft.AspNetCore.WebUtilities;
 using SharedServices;
-using System.IO.BACnet;
-using System.IO.BACnet.Serialize;
-using System.Net;
+using System.Text.Json;
 
 namespace ValueReaderService.Services;
 
-public class BacnetDeviceReader(HomeSystemContext dbContext, ILogger<BacnetDeviceReader> logger, PointValueStore pointValueStore) : DeviceReader(dbContext, logger)
+public class BacnetDeviceReader(
+    HomeSystemContext dbContext,
+    ILogger<BacnetDeviceReader> logger,
+    PointValueStore pointValueStore,
+    IConfiguration configuration,
+    HttpClient httpClient) : DeviceReader(dbContext, logger)
 {
-    protected override Task<bool> ExecuteAsyncInternal(Device device, DateTime timestamp)
+    private readonly JsonSerializerOptions jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+    protected override async Task<bool> ExecuteAsyncInternal(Device device, DateTime timestamp)
     {
-        var address = CreateAddress();
-        if (address == null)
-            return Task.FromResult(false);
+        var baseUrl = configuration["BacnetConnectorUrl"];
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            return false;
 
-        using var bacnetClient = new BacnetClient(new BacnetIpUdpProtocolTransport(0xBAC0), 10000);
-        bacnetClient.Start();
+        var url = baseUrl;
+        if (!url.EndsWith('/'))
+            url += '/';
+        url += "values";
+        url = QueryHelpers.AddQueryString(url, device.DevicePoints.Select(x => KeyValuePair.Create("a", (string?)x.Address)));
+        var response = await httpClient.GetAsync(url);
+        if (!response.IsSuccessStatusCode)
+            return false;
+        var responseText = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrEmpty(responseText))
+            return false;
 
-        var points = device.DevicePoints.ToArray();
-
-        var readCommands = points.Select(p =>
+        PointValueDto[]? pointValues;
+        try
         {
-            var objectId = BacnetObjectId.Parse(p.Address);
-
-            return new BacnetReadAccessSpecification
-            {
-                objectIdentifier = objectId,
-                propertyReferences = [new BacnetPropertyReference((uint)BacnetPropertyIds.PROP_PRESENT_VALUE, ASN1.BACNET_ARRAY_ALL)]
-            };
-        }).ToList();
-
-        bacnetClient.ReadPropertyMultipleRequest(address, readCommands, out var values);
-
-        if (values == null)
-        {
-            logger.LogError("Bacnet property read failed.");
-            return Task.FromResult(false);
+            pointValues = JsonSerializer.Deserialize<PointValueDto[]>(responseText, jsonOptions);
         }
-
-        for (int i = 0; i < points.Length; i++)
+        catch (Exception e)
         {
-            var point = points[i];
-            var bacnetValue = values[i];
-            if (bacnetValue.values.Count > 0 && bacnetValue.values[0].value.Count > 0)
+            logger.LogError(e, "Deserializing Bacnet connector response failed.");
+            return false;
+        }
+        if (pointValues == null)
+            return false;
+        if (pointValues.Length == 0)
+            return true;
+
+        foreach (var point in device.DevicePoints)
+        {
+            var value = pointValues.FirstOrDefault(x => string.Equals(point.Address, x.Address, StringComparison.OrdinalIgnoreCase))?.Value;
+            if (value != null)
             {
-                var value = bacnetValue.values[0].value[0].Value.ToString() ?? "";
                 if (point.DataType.Name == "Enum")
                 {
                     if (int.TryParse(value, out var valueInt) && valueInt > 0)
@@ -58,25 +65,8 @@ public class BacnetDeviceReader(HomeSystemContext dbContext, ILogger<BacnetDevic
             }
         }
 
-        return Task.FromResult(true);
+        return true;
     }
 
-    private BacnetAddress? CreateAddress()
-    {
-        IPHostEntry hostEntry;
-
-        hostEntry = Dns.GetHostEntry("tew-752dru");
-
-        IPAddress? ipAddress;
-
-        if (hostEntry.AddressList.Length > 0)
-            ipAddress = hostEntry.AddressList[0];
-        else
-        {
-            logger.LogError("Could not resolve Bacnet unit IP address.");
-            return null;
-        }
-
-        return new BacnetAddress(BacnetAddressTypes.IP, ipAddress.ToString());
-    }
+    protected record PointValueDto(string Address, string Value) { }
 }
