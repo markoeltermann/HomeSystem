@@ -1,24 +1,21 @@
 ﻿using Domain;
-using SharedServices;
 using System.Text.Json;
 
 namespace ValueReaderService.Services;
 
 public class ShellyDeviceReader(
-    HomeSystemContext dbContext,
     ILogger<DeviceReader> logger,
-    HttpClient httpClient,
-    PointValueStore pointValueStore)
-    : DeviceReader(dbContext, logger)
+    HttpClient httpClient)
+    : DeviceReader(logger)
 {
-    protected override async Task<bool> ExecuteAsyncInternal(Device device, DateTime timestamp)
+    protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp)
     {
         if (device.Address is null)
-            return false;
+            return null;
 
         var address = JsonSerializer.Deserialize<DeviceAddress>(device.Address);
         if (address?.IP is null)
-            return false;
+            return null;
 
         var url = $"http://{address.IP}";
         if (address.Port is not null)
@@ -31,6 +28,7 @@ public class ShellyDeviceReader(
 
         var jDoc = JsonDocument.Parse(responseText);
 
+        var result = new List<PointValue>(device.DevicePoints.Count);
         foreach (var point in device.DevicePoints)
         {
             var addressParts = point.Address.Split('.');
@@ -38,20 +36,20 @@ public class ShellyDeviceReader(
             {
                 if (point.DataType.Name == "Float" && element.TryGetProperty(addressParts[1], out var valueElement) && valueElement.TryGetDouble(out var value))
                 {
-                    pointValueStore.StoreValue(device.Id, point.Id, timestamp, value.ToString());
+                    result.Add(new(point, value.ToString()));
                 }
                 else if (point.DataType.Name == "Boolean" && element.TryGetProperty(addressParts[1], out valueElement))
                 {
                     try
                     {
                         var b = valueElement.GetBoolean();
-                        pointValueStore.StoreValue(device.Id, point.Id, timestamp, b.ToString());
+                        result.Add(new(point, b.ToString()));
                     }
                     catch { }
                 }
             }
         }
 
-        return true;
+        return result;
     }
 }

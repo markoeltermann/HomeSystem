@@ -1,24 +1,21 @@
 ﻿using Domain;
 using Microsoft.AspNetCore.WebUtilities;
-using SharedServices;
 using System.Text.Json;
 
 namespace ValueReaderService.Services;
 
 public class BacnetDeviceReader(
-    HomeSystemContext dbContext,
     ILogger<BacnetDeviceReader> logger,
-    PointValueStore pointValueStore,
     IConfiguration configuration,
-    HttpClient httpClient) : DeviceReader(dbContext, logger)
+    HttpClient httpClient) : DeviceReader(logger)
 {
     private readonly JsonSerializerOptions jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    protected override async Task<bool> ExecuteAsyncInternal(Device device, DateTime timestamp)
+    protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp)
     {
         var baseUrl = configuration["BacnetConnectorUrl"];
         if (string.IsNullOrWhiteSpace(baseUrl))
-            return false;
+            return null;
 
         var url = baseUrl;
         if (!url.EndsWith('/'))
@@ -27,10 +24,10 @@ public class BacnetDeviceReader(
         url = QueryHelpers.AddQueryString(url, device.DevicePoints.Select(x => KeyValuePair.Create("a", (string?)x.Address)));
         var response = await httpClient.GetAsync(url);
         if (!response.IsSuccessStatusCode)
-            return false;
+            return null;
         var responseText = await response.Content.ReadAsStringAsync();
         if (string.IsNullOrEmpty(responseText))
-            return false;
+            return null;
 
         PointValueDto[]? pointValues;
         try
@@ -40,12 +37,14 @@ public class BacnetDeviceReader(
         catch (Exception e)
         {
             logger.LogError(e, "Deserializing Bacnet connector response failed.");
-            return false;
+            return null;
         }
         if (pointValues == null)
-            return false;
+            return null;
         if (pointValues.Length == 0)
-            return true;
+            return Array.Empty<PointValue>();
+
+        var result = new List<PointValue>(device.DevicePoints.Count);
 
         foreach (var point in device.DevicePoints)
         {
@@ -61,11 +60,11 @@ public class BacnetDeviceReader(
                             value = enumValue.Name;
                     }
                 }
-                pointValueStore.StoreValue(device.Id, point.Id, timestamp, value);
+                result.Add(new(point, value));
             }
         }
 
-        return true;
+        return result;
     }
 
     protected record PointValueDto(string Address, string Value) { }

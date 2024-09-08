@@ -1,5 +1,6 @@
 using Domain;
 using Microsoft.EntityFrameworkCore;
+using SharedServices;
 using ValueReaderService.Services;
 using ValueReaderService.Services.ChineseRoomController;
 
@@ -74,7 +75,15 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
             using var scope = serviceProvider.CreateScope();
 
             var reader = scope.ServiceProvider.GetRequiredService<TReader>();
-            await reader.ExecuteAsync(device, wakeTime);
+            var pointValues = await reader.ExecuteAsync(device, wakeTime);
+            if (pointValues is not null)
+            {
+                var pointValueStore = scope.ServiceProvider.GetRequiredService<PointValueStore>();
+                foreach (var (point, value) in pointValues)
+                {
+                    pointValueStore.StoreValue(device.Id, point.Id, wakeTime, value);
+                }
+            }
         }, CancellationToken.None));
     }
 
