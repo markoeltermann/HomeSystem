@@ -7,7 +7,7 @@ namespace ValueReaderService.Services.ChineseRoomController;
 public class ChineseRoomControllerReader(ILogger<DeviceReader> logger)
     : DeviceReader(logger)
 {
-    protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp)
+    protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
         if (device.Address is null)
             return null;
@@ -23,8 +23,8 @@ public class ChineseRoomControllerReader(ILogger<DeviceReader> logger)
             dps = await tuyaDevice.GetDpsAsync();
         }
 
-        var result = new List<PointValue>(device.DevicePoints.Count);
-        foreach (var devicePoint in device.DevicePoints)
+        var result = new List<PointValue>(devicePoints.Count);
+        foreach (var devicePoint in devicePoints)
         {
             var addressInt = int.Parse(devicePoint.Address);
             var rawValue = dps[addressInt];

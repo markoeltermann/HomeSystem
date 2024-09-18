@@ -1,6 +1,7 @@
 using Domain;
 using Microsoft.EntityFrameworkCore;
 using SharedServices;
+using System.Collections.Concurrent;
 using ValueReaderService.Services;
 using ValueReaderService.Services.ChineseRoomController;
 
@@ -8,6 +9,10 @@ namespace ValueReaderService;
 
 public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IConfiguration configuration) : BackgroundService
 {
+    private readonly Dictionary<Type, (DeviceReader, Device, DevicePoint[]?)> frequentReads = [];
+    private readonly ConcurrentQueue<Task> frequentReadTasks = [];
+    private readonly object frequentReadLock = new();
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await LogDeviceCount(stoppingToken);
@@ -44,15 +49,15 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                 {
                     if (device.Type == "ventilation")
                     {
-                        RunReader<BacnetDeviceReader>(serviceProvider, wakeTime, tasks, device);
+                        RunReader<BacnetDeviceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
                     }
                     else if (device.Type == "room_controller")
                     {
-                        RunReader<ChineseRoomControllerReader>(serviceProvider, wakeTime, tasks, device);
+                        RunReader<ChineseRoomControllerReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
                     }
                     else if (device.Type == "shelly")
                     {
-                        RunReader<ShellyDeviceReader>(serviceProvider, wakeTime, tasks, device);
+                        RunReader<ShellyDeviceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
                     }
                 }
             }
@@ -64,27 +69,144 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
 #endif
         }
 
+        while (frequentReadTasks.TryDequeue(out var task))
+        {
+            await task;
+        }
+
         logger.LogInformation("Read loop stopping");
     }
 
-    private static void RunReader<TReader>(IServiceProvider serviceProvider, DateTime wakeTime, List<Task> tasks, Device device) 
+    private void RunReader<TReader>(IServiceProvider serviceProvider, DateTime wakeTime, List<Task> tasks, Device device, CancellationToken stoppingToken)
         where TReader : DeviceReader
     {
         tasks.Add(Task.Run(async () =>
         {
-            using var scope = serviceProvider.CreateScope();
+            var pointValueStore = serviceProvider.GetRequiredService<PointValueStore>();
 
-            var reader = scope.ServiceProvider.GetRequiredService<TReader>();
-            var pointValues = await reader.ExecuteAsync(device, wakeTime);
-            if (pointValues is not null)
+            using (var scope = serviceProvider.CreateScope())
             {
-                var pointValueStore = scope.ServiceProvider.GetRequiredService<PointValueStore>();
-                foreach (var (point, value) in pointValues)
+                var reader = scope.ServiceProvider.GetRequiredService<TReader>();
+                var pointValues = await reader.ExecuteAsync(device, wakeTime, device.DevicePoints);
+                if (pointValues is not null)
                 {
-                    pointValueStore.StoreValue(device.Id, point.Id, wakeTime, value);
+                    foreach (var (point, value) in pointValues)
+                    {
+                        pointValueStore.StoreValue(device.Id, point.Id, wakeTime, value);
+                    }
                 }
             }
+
+            HandleFrequentReadPoints<TReader>(serviceProvider, wakeTime, device, pointValueStore, stoppingToken);
+
         }, CancellationToken.None));
+    }
+
+    private void HandleFrequentReadPoints<TReader>(
+        IServiceProvider serviceProvider,
+        DateTime wakeTime,
+        Device device,
+        PointValueStore pointValueStore,
+        CancellationToken stoppingToken) where TReader : DeviceReader
+    {
+        try
+        {
+            if (device.DevicePoints.Any(x => x.IsFrequentReadEnabled))
+            {
+                bool containsReader = false;
+                lock (frequentReadLock)
+                {
+                    containsReader = frequentReads.ContainsKey(typeof(TReader));
+                }
+                if (!containsReader)
+                {
+                    var reader = serviceProvider.GetRequiredService<TReader>();
+                    lock (frequentReadLock)
+                    {
+                        frequentReads[typeof(TReader)] = (reader, device, device.DevicePoints.Where(x => x.IsFrequentReadEnabled).ToArray());
+                    }
+
+                    var t = Task.Run(async () =>
+                    {
+                        while (!stoppingToken.IsCancellationRequested)
+                        {
+                            try
+                            {
+                                DeviceReader? reader = null;
+                                Device? device = null;
+                                DevicePoint[]? devicePoints = null;
+                                bool found;
+                                lock (frequentReadLock)
+                                {
+                                    found = frequentReads.TryGetValue(typeof(TReader), out var fr);
+                                    if (found)
+                                    {
+                                        (reader, device, devicePoints) = fr;
+                                    }
+                                }
+                                if (found)
+                                {
+                                    if (devicePoints == null || devicePoints.Length == 0)
+                                    {
+                                        return;
+                                    }
+
+                                    var now = DateTime.UtcNow;
+                                    var pointValues = await reader!.ExecuteAsync(device!, now, devicePoints);
+                                    if (pointValues is not null)
+                                    {
+                                        foreach (var (point, value) in pointValues)
+                                        {
+                                            pointValueStore.StoreFrequentValue(device!.Id, point.Id, now, value);
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError(ex, "Frequent read cycle has failed.");
+                            }
+
+                            try
+                            {
+                                await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+                            }
+                            catch (TaskCanceledException)
+                            {
+                                return;
+                            }
+                        }
+                    }, CancellationToken.None);
+                    frequentReadTasks.Enqueue(t);
+                }
+                else
+                {
+                    lock (frequentReadLock)
+                    {
+                        var (deviceReader, _, _) = frequentReads[typeof(TReader)];
+                        frequentReads[typeof(TReader)] = (deviceReader, device, device.DevicePoints.Where(x => x.IsFrequentReadEnabled).ToArray());
+                    }
+                }
+            }
+            else
+            {
+                lock (frequentReadLock)
+                {
+                    lock (frequentReadLock)
+                    {
+                        if (frequentReads.TryGetValue(typeof(TReader), out var fr))
+                        {
+                            var (reader, _, _) = fr;
+                            frequentReads[typeof(TReader)] = (reader, device, null);
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Frequent read handling has failed.");
+        }
     }
 
     private async Task LogDeviceCount(CancellationToken stoppingToken)

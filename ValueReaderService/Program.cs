@@ -23,13 +23,12 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddDbContext<HomeSystemContext>(options =>
             options.UseNpgsql(context.Configuration.GetConnectionString("HomeSystemContext")));
 
-        services.AddScoped<BacnetDeviceReader>();
+        services.AddSingleton<BacnetDeviceReader>();
         services.AddScoped<ChineseRoomControllerReader>();
-        services.AddScoped<ShellyDeviceReader>();
+        services.AddSingleton<ShellyDeviceReader>();
         services.AddSingleton<PointValueStore>();
 
-        services.AddHttpClient<BacnetDeviceReader>();
-        services.AddHttpClient<ShellyDeviceReader>();
+        services.AddHttpClient();
     })
     .UseWindowsService(options =>
     {

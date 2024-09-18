@@ -7,11 +7,11 @@ namespace ValueReaderService.Services;
 public class BacnetDeviceReader(
     ILogger<BacnetDeviceReader> logger,
     IConfiguration configuration,
-    HttpClient httpClient) : DeviceReader(logger)
+    IHttpClientFactory httpClientFactory) : DeviceReader(logger)
 {
     private readonly JsonSerializerOptions jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp)
+    protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
         var baseUrl = configuration["BacnetConnectorUrl"];
         if (string.IsNullOrWhiteSpace(baseUrl))
@@ -21,7 +21,9 @@ public class BacnetDeviceReader(
         if (!url.EndsWith('/'))
             url += '/';
         url += "values";
-        url = QueryHelpers.AddQueryString(url, device.DevicePoints.Select(x => KeyValuePair.Create("a", (string?)x.Address)));
+        url = QueryHelpers.AddQueryString(url, devicePoints.Select(x => KeyValuePair.Create("a", (string?)x.Address)));
+
+        using var httpClient = httpClientFactory.CreateClient(nameof(BacnetDeviceReader));
         var response = await httpClient.GetAsync(url);
         if (!response.IsSuccessStatusCode)
             return null;
@@ -44,9 +46,9 @@ public class BacnetDeviceReader(
         if (pointValues.Length == 0)
             return Array.Empty<PointValue>();
 
-        var result = new List<PointValue>(device.DevicePoints.Count);
+        var result = new List<PointValue>(devicePoints.Count);
 
-        foreach (var point in device.DevicePoints)
+        foreach (var point in devicePoints)
         {
             var value = pointValues.FirstOrDefault(x => string.Equals(point.Address, x.Address, StringComparison.OrdinalIgnoreCase))?.Value;
             if (value != null)

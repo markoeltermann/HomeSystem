@@ -5,10 +5,10 @@ namespace ValueReaderService.Services;
 
 public class ShellyDeviceReader(
     ILogger<DeviceReader> logger,
-    HttpClient httpClient)
+    IHttpClientFactory httpClientFactory)
     : DeviceReader(logger)
 {
-    protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp)
+    protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
         if (device.Address is null)
             return null;
@@ -23,13 +23,14 @@ public class ShellyDeviceReader(
 
         url += "/rpc/Shelly.GetStatus";
 
+        using var httpClient = httpClientFactory.CreateClient(nameof(ShellyDeviceReader));
         var response = await httpClient.GetAsync(url);
         var responseText = await response.Content.ReadAsStringAsync();
 
         var jDoc = JsonDocument.Parse(responseText);
 
-        var result = new List<PointValue>(device.DevicePoints.Count);
-        foreach (var point in device.DevicePoints)
+        var result = new List<PointValue>(devicePoints.Count);
+        foreach (var point in devicePoints)
         {
             var addressParts = point.Address.Split('.');
             if (addressParts.Length == 2 && jDoc.RootElement.TryGetProperty(addressParts[0], out var element))
