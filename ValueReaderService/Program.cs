@@ -26,6 +26,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<BacnetDeviceReader>();
         services.AddScoped<ChineseRoomControllerReader>();
         services.AddSingleton<ShellyDeviceReader>();
+        services.AddSingleton<MyUplinkDeviceReader>();
         services.AddSingleton<PointValueStore>();
 
         services.AddHttpClient();

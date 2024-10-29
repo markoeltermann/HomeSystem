@@ -59,6 +59,10 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                     {
                         RunReader<ShellyDeviceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
                     }
+                    else if (device.Type == "heat_pump")
+                    {
+                        RunReader<MyUplinkDeviceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                    }
                 }
             }
 

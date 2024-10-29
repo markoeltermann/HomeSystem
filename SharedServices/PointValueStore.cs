@@ -121,8 +121,14 @@ public class PointValueStore(ILogger<PointValueStore> logger)
                         var timestamp = d.AddDays(-1) + delta;
                         if (timestamp >= fromD && timestamp <= upToD)
                         {
-                            var value = double.Parse(rawValue);
-                            result[timestamp.ToLocalTime()] = value;
+                            if (double.TryParse(rawValue, out var value))
+                            {
+                                result[timestamp.ToLocalTime()] = value;
+                            }
+                            else if (bool.TryParse(rawValue, out var b))
+                            {
+                                result[timestamp.ToLocalTime()] = b ? 1 : 0;
+                            }
                         }
                     }
                 }

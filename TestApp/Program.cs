@@ -3,12 +3,17 @@ using Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Kiota.Abstractions.Authentication;
+using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Http.HttpClientLibrary;
+using MyUplinkConnector;
 using MyUplinkConnector.Client;
 using System.IO.BACnet;
 using System.IO.BACnet.Serialize;
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using TestApp;
+using ValueReaderService.Services;
 using ValueReaderService.Services.ChineseRoomController;
 
 var builder = new ConfigurationBuilder()
@@ -454,13 +459,7 @@ static int GetHexVal(char hex)
 //Console.ReadLine();
 
 
-//using var httpClient = new HttpClient();
-
-////var authorizeRequest = new
-////{
-////    client_id = "6d34a8a5-0c56-4f0e-a492-b8b167977b80",
-////    client_secret = "8BACD656E79135A7A39980A1E074E77C"
-////};
+using var httpClient = new HttpClient();
 
 //var content = new FormUrlEncodedContent([
 //    new KeyValuePair<string, string>("client_id", "6d34a8a5-0c56-4f0e-a492-b8b167977b80"),
@@ -477,29 +476,112 @@ static int GetHexVal(char hex)
 
 //var responseText = await response.Content.ReadAsStringAsync();
 
+//var tokenInfo = JsonSerializer.Deserialize<AccessTokenInfo>(responseText);
 
-//var authProvider = new AnonymousAuthenticationProvider();
+//if (tokenInfo?.AccessToken is null)
+//    return;
+
+//var tokenProvider = new AccessTokenProvider(tokenInfo.AccessToken);
+//var authProvider = new BaseBearerTokenAuthenticationProvider(tokenProvider);
 //// Create request adapter using the HttpClient-based implementation
 //var adapter = new HttpClientRequestAdapter(authProvider);
+//adapter.BaseUrl = "https://api.myuplink.com/";
 //// Create the API client
 //var client = new MyUplinkClient(adapter);
+var client = await MyUplinkClientFactory.Create(httpClient, "6d34a8a5-0c56-4f0e-a492-b8b167977b80", "8BACD656E79135A7A39980A1E074E77C");
+if (client == null)
+    return;
+
+var systems = await client.V2.Systems.Me.GetAsync();
+var deviceId = systems?.Systems?.FirstOrDefault()?.Devices?.FirstOrDefault()?.Id;
+if (deviceId == null)
+    return;
+
+//var heatPumpDevice = new Device
+//{
+//    Name = "Heat pump",
+//    Address = JsonSerializer.Serialize(new DeviceAddress
+//    {
+//        DeviceId = deviceId,
+//        ClientId = "6d34a8a5-0c56-4f0e-a492-b8b167977b80",
+//        ClientSecret = "8BACD656E79135A7A39980A1E074E77C"
+//    }, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull }),
+//    IsEnabled = true,
+//    Type = "heat_pump"
+//};
+//dbContext.Devices.Add(heatPumpDevice);
+//dbContext.SaveChanges();
+
+var heatPumpDevice = dbContext.Devices.FirstOrDefault(x => x.Type == "heat_pump");
+//heatPumpDevice.Address = JsonSerializer.Serialize(new DeviceAddress
+//{
+//    DeviceId = deviceId,
+//    ClientId = "6d34a8a5-0c56-4f0e-a492-b8b167977b80",
+//    ClientSecret = "8BACD656E79135A7A39980A1E074E77C"
+//}, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
+//dbContext.SaveChanges();
+
+var units = dbContext.Units.ToDictionary(x => x.Name);
+var dataTypes = dbContext.DataTypes.ToDictionary(x => x.Name);
+var floatDataType = dataTypes["Float"];
+
+var points = await client.V2.Devices[deviceId].Points.GetAsync();
+
+foreach (var point in points!)
+{
+    int.TryParse(point.ParameterId, out var parameterId);
+
+    //if (point.ParameterUnit is "°C" or "bar" or "Hz" or "A" && parameterId <= 44701 && parameterId > 0)
+    if (point.ParameterUnit is "%" && parameterId > 0)
+    {
+        var name = point.ParameterName ?? "";
+        for (int i = 1; i < name.Length - 1; i++)
+        {
+            var cp = name[i - 1];
+            var c = name[i];
+            var cn = name[i + 1];
+            if ((c == '-' || c == (char)173) && char.IsLetter(cp) && char.IsLetter(cn))
+                name = name[..i] + name[(i + 1)..];
+        }
+
+        var rawValue = point.Value;
+        string value = rawValue?.ToString() ?? "";
+        if (rawValue is UntypedDecimal untypedDecimal)
+            value = untypedDecimal.GetValue().ToString();
+        Console.WriteLine($"{point.ParameterId} {name,-40} {point.StrVal,-10} {value,-10} {point.ParameterUnit} {string.Join(", ", point.EnumValues!.Select(x => x.Text + " " + x.Value))}");
+
+        var devicePoint = new DevicePoint
+        {
+            Device = heatPumpDevice!,
+            Name = name,
+            Address = parameterId.ToString(),
+            DataType = floatDataType,
+            Unit = units[point.ParameterUnit],
+        };
+        dbContext.DevicePoints.Add(devicePoint);
+    }
+}
+
+dbContext.SaveChanges();
+
+Console.ReadLine();
 
 
 //Console.WriteLine(responseText);
 
-using var httpClient = new HttpClient();
-httpClient.Timeout = TimeSpan.FromMinutes(10);
+//using var httpClient = new HttpClient();
+//httpClient.Timeout = TimeSpan.FromMinutes(10);
 
-//var content = new StringContent("{\"id\":1,\"method\":\"HTTP.GET\",\"params\":{\"url\":\"http://10.33.53.21/rpc/Shelly.GetDeviceInfo\"}}' http://${SHELLY}/rpc");
+////var content = new StringContent("{\"id\":1,\"method\":\"HTTP.GET\",\"params\":{\"url\":\"http://10.33.53.21/rpc/Shelly.GetDeviceInfo\"}}' http://${SHELLY}/rpc");
 
-//var response = await httpClient.PostAsync("http://192.168.1.130:6700/rpc", content);
+////var response = await httpClient.PostAsync("http://192.168.1.130:6700/rpc", content);
 
-var response = await httpClient.GetAsync("http://192.168.1.130:6701/rpc/Shelly.GetStatus");
-//var response = await httpClient.GetAsync("http://192.168.1.130:6700/rpc/Light.Set?id=0&brightness=27.09");
+//var response = await httpClient.GetAsync("http://192.168.1.130:6701/rpc/Shelly.GetStatus");
+////var response = await httpClient.GetAsync("http://192.168.1.130:6700/rpc/Light.Set?id=0&brightness=27.09");
 
-var responseText = await response.Content.ReadAsStringAsync();
+//var responseText = await response.Content.ReadAsStringAsync();
 
-using var jDoc = JsonDocument.Parse(responseText);
-responseText = JsonSerializer.Serialize(jDoc, new JsonSerializerOptions { WriteIndented = true });
+//using var jDoc = JsonDocument.Parse(responseText);
+//responseText = JsonSerializer.Serialize(jDoc, new JsonSerializerOptions { WriteIndented = true });
 
-Console.WriteLine(responseText);
+//Console.WriteLine(responseText);

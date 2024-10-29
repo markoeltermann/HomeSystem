@@ -6,4 +6,6 @@ public class DeviceAddress
     public int? Port { get; set; }
     public string? DeviceId { get; set; }
     public string? LocalKey { get; set; }
+    public string? ClientId { get; set; }
+    public string? ClientSecret { get; set; }
 }

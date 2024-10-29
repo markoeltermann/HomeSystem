@@ -4,16 +4,16 @@ namespace ValueReaderService.Services;
 
 public abstract class DeviceReader(ILogger<DeviceReader> logger)
 {
-    public Task<IList<PointValue>?> ExecuteAsync(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
+    public async Task<IList<PointValue>?> ExecuteAsync(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
         try
         {
-            return ExecuteAsyncInternal(device, timestamp, devicePoints);
+            return await ExecuteAsyncInternal(device, timestamp, devicePoints);
         }
         catch (Exception e)
         {
             logger.LogError(e, "Device reader execution has failed");
-            return Task.FromResult<IList<PointValue>?>(null);
+            return null;
         }
     }
 
