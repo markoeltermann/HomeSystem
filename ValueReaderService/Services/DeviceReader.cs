@@ -1,9 +1,12 @@
 ﻿using Domain;
+using System.Globalization;
 
 namespace ValueReaderService.Services;
 
 public abstract class DeviceReader(ILogger<DeviceReader> logger)
 {
+    protected static readonly CultureInfo InvariantCulture = CultureInfo.InvariantCulture;
+
     public async Task<IList<PointValue>?> ExecuteAsync(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
         try

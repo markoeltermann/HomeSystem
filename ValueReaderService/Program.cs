@@ -27,6 +27,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddScoped<ChineseRoomControllerReader>();
         services.AddSingleton<ShellyDeviceReader>();
         services.AddSingleton<MyUplinkDeviceReader>();
+        services.AddSingleton<AirobotThermostatReader>();
         services.AddSingleton<PointValueStore>();
 
         services.AddHttpClient();

@@ -15,7 +15,13 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (stoppingToken.IsCancellationRequested)
+            return;
+
         await LogDeviceCount(stoppingToken);
+
+        if (stoppingToken.IsCancellationRequested)
+            return;
 
         logger.LogInformation("Read loop starting");
 
@@ -43,30 +49,41 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
 
             logger.LogInformation("Read starting");
 
-            foreach (var device in devices)
+            try
             {
-                if (device.IsEnabled)
+                foreach (var device in devices)
                 {
-                    if (device.Type == "ventilation")
+                    if (device.IsEnabled)
                     {
-                        RunReader<BacnetDeviceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
-                    }
-                    else if (device.Type == "room_controller")
-                    {
-                        RunReader<ChineseRoomControllerReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
-                    }
-                    else if (device.Type == "shelly")
-                    {
-                        RunReader<ShellyDeviceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
-                    }
-                    else if (device.Type == "heat_pump")
-                    {
-                        RunReader<MyUplinkDeviceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        if (device.Type == "ventilation")
+                        {
+                            RunReader<BacnetDeviceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
+                        else if (device.Type == "room_controller")
+                        {
+                            RunReader<ChineseRoomControllerReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
+                        else if (device.Type == "shelly")
+                        {
+                            RunReader<ShellyDeviceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
+                        else if (device.Type == "heat_pump")
+                        {
+                            RunReader<MyUplinkDeviceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
+                        else if (device.Type == "airobot_thermostat")
+                        {
+                            RunReader<AirobotThermostatReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
                     }
                 }
-            }
 
-            await Task.WhenAll(tasks);
+                await Task.WhenAll(tasks);
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "Read failed");
+            }
 
 #if DEBUG
             await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
@@ -101,14 +118,13 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                 }
             }
 
-            HandleFrequentReadPoints<TReader>(serviceProvider, wakeTime, device, pointValueStore, stoppingToken);
+            HandleFrequentReadPoints<TReader>(serviceProvider, device, pointValueStore, stoppingToken);
 
         }, CancellationToken.None));
     }
 
     private void HandleFrequentReadPoints<TReader>(
         IServiceProvider serviceProvider,
-        DateTime wakeTime,
         Device device,
         PointValueStore pointValueStore,
         CancellationToken stoppingToken) where TReader : DeviceReader
@@ -215,19 +231,27 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
 
     private async Task LogDeviceCount(CancellationToken stoppingToken)
     {
-        try
+        while (true)
         {
-            using var countScope = serviceProvider.CreateScope();
-            var dbContext = countScope.ServiceProvider.GetRequiredService<HomeSystemContext>();
-            var deviceCount = await dbContext.Devices.CountAsync(stoppingToken);
-            logger.LogInformation("Found {Count} devices", deviceCount);
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "Failed to retrieve device count. Service will not start.");
-            throw;
+            try
+            {
+                using var countScope = serviceProvider.CreateScope();
+                var dbContext = countScope.ServiceProvider.GetRequiredService<HomeSystemContext>();
+                var deviceCount = await dbContext.Devices.CountAsync(stoppingToken);
+                logger.LogInformation("Found {Count} devices", deviceCount);
+                return;
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "Failed to retrieve device count.");
+                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+                if (stoppingToken.IsCancellationRequested)
+                    return;
+            } 
         }
     }
+
+#if !DEBUG
 
     private static DateTime GetNextWakeTime(DateTime now)
     {
@@ -240,7 +264,9 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
             < 50 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 50, 0, DateTimeKind.Utc),
             _ => new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc).AddHours(1)
         };
-    }
+    } 
+
+#endif
 
     private async Task<List<Device>> GetDevices()
     {
