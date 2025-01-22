@@ -18,6 +18,8 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
         if (stoppingToken.IsCancellationRequested)
             return;
 
+        var deviceType = configuration["DeviceType"] ?? throw new InvalidOperationException("DeviceType is missing from appSettings.");
+
         await LogDeviceCount(stoppingToken);
 
         if (stoppingToken.IsCancellationRequested)
@@ -32,18 +34,18 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
 #if DEBUG
             wakeTime = DateTime.UtcNow;
 #else
-            wakeTime = GetNextWakeTime(DateTime.UtcNow.AddSeconds(30)).AddSeconds(-20);
+            wakeTime = GetNextWakeTime(DateTime.UtcNow.AddSeconds(30), deviceType).AddSeconds(-20);
             await Task.Delay(wakeTime - DateTime.UtcNow, stoppingToken);
 #endif
 
             logger.LogInformation("Read pre-starting");
 
-            var devices = await GetDevices();
+            var devices = await GetDevices(deviceType);
 
             var tasks = new List<Task>();
 
 #if !DEBUG
-            wakeTime = GetNextWakeTime(DateTime.UtcNow.AddSeconds(5));
+            wakeTime = GetNextWakeTime(DateTime.UtcNow.AddSeconds(5), deviceType);
             await Task.Delay(wakeTime - DateTime.UtcNow, stoppingToken);
 #endif
 
@@ -74,6 +76,14 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                         else if (device.Type == "airobot_thermostat")
                         {
                             RunReader<AirobotThermostatReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
+                        else if (device.Type == "deye_inverter")
+                        {
+                            RunReader<ModbusDeviceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
+                        else if (device.Type == "electricity_price")
+                        {
+                            RunReader<ElectricityPriceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
                         }
                     }
                 }
@@ -111,9 +121,9 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                 var pointValues = await reader.ExecuteAsync(device, wakeTime, device.DevicePoints);
                 if (pointValues is not null)
                 {
-                    foreach (var (point, value) in pointValues)
+                    foreach (var (point, value, timestamp) in pointValues)
                     {
-                        pointValueStore.StoreValue(device.Id, point.Id, wakeTime, value);
+                        pointValueStore.StoreValue(device.Id, point.Id, timestamp ?? wakeTime, value);
                     }
                 }
             }
@@ -175,7 +185,7 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                                     var pointValues = await reader!.ExecuteAsync(device!, now, devicePoints);
                                     if (pointValues is not null)
                                     {
-                                        foreach (var (point, value) in pointValues)
+                                        foreach (var (point, value, _) in pointValues)
                                         {
                                             pointValueStore.StoreFrequentValue(device!.Id, point.Id, now, value);
                                         }
@@ -247,31 +257,36 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                 await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
                 if (stoppingToken.IsCancellationRequested)
                     return;
-            } 
+            }
         }
     }
 
 #if !DEBUG
 
-    private static DateTime GetNextWakeTime(DateTime now)
+    private static DateTime GetNextWakeTime(DateTime now, string deviceType)
     {
-        return now.Minute switch
+        if (deviceType == "electricity_price")
         {
-            < 10 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 10, 0, DateTimeKind.Utc),
-            < 20 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 20, 0, DateTimeKind.Utc),
-            < 30 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 30, 0, DateTimeKind.Utc),
-            < 40 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 40, 0, DateTimeKind.Utc),
-            < 50 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 50, 0, DateTimeKind.Utc),
-            _ => new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc).AddHours(1)
-        };
-    } 
+            return new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc).AddHours(1);
+        }
+        else
+        {
+            return now.Minute switch
+            {
+                < 10 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 10, 0, DateTimeKind.Utc),
+                < 20 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 20, 0, DateTimeKind.Utc),
+                < 30 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 30, 0, DateTimeKind.Utc),
+                < 40 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 40, 0, DateTimeKind.Utc),
+                < 50 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 50, 0, DateTimeKind.Utc),
+                _ => new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc).AddHours(1)
+            };
+        }
+    }
 
 #endif
 
-    private async Task<List<Device>> GetDevices()
+    private async Task<List<Device>> GetDevices(string deviceType)
     {
-        var deviceType = configuration["DeviceType"] ?? throw new InvalidOperationException("DeviceType is missing from appSettings.");
-
         using var scope = serviceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<HomeSystemContext>();
 

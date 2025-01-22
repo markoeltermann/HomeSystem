@@ -33,6 +33,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SolarmanV5Connector", "Sola
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SolarmanV5Tester", "SolarmanV5Tester\SolarmanV5Tester.csproj", "{DD2AB57F-6E29-49C2-BCB8-5045DA02B45D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommonLibrary", "CommonLibrary\CommonLibrary.csproj", "{221C98B8-551D-4BAC-B6DA-3F948E3D9FA1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -87,6 +89,10 @@ Global
 		{DD2AB57F-6E29-49C2-BCB8-5045DA02B45D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DD2AB57F-6E29-49C2-BCB8-5045DA02B45D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DD2AB57F-6E29-49C2-BCB8-5045DA02B45D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{221C98B8-551D-4BAC-B6DA-3F948E3D9FA1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{221C98B8-551D-4BAC-B6DA-3F948E3D9FA1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{221C98B8-551D-4BAC-B6DA-3F948E3D9FA1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{221C98B8-551D-4BAC-B6DA-3F948E3D9FA1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

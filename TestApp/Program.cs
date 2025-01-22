@@ -1,20 +1,9 @@
-﻿using com.clusterrr.TuyaNet;
-using Domain;
+﻿using Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Kiota.Abstractions.Authentication;
 using Microsoft.Kiota.Abstractions.Serialization;
-using Microsoft.Kiota.Http.HttpClientLibrary;
 using MyUplinkConnector;
-using MyUplinkConnector.Client;
-using System.IO.BACnet;
-using System.IO.BACnet.Serialize;
-using System.Net;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using TestApp;
-using ValueReaderService.Services;
-using ValueReaderService.Services.ChineseRoomController;
 
 var builder = new ConfigurationBuilder()
             .SetBasePath(Path.GetDirectoryName(typeof(Program).Assembly.Location))
@@ -29,7 +18,9 @@ var optionsBuilder = new DbContextOptionsBuilder<HomeSystemContext>()
 
 var dbContext = new HomeSystemContext(optionsBuilder.Options);
 
-
+//await ModbusRegisterProcessor.Run(dbContext);
+await DataAnalyzer.Run();
+return;
 
 
 

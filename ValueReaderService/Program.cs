@@ -1,6 +1,5 @@
 using Domain;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using NLog.Extensions.Logging;
 using SharedServices;
 using ValueReaderService;
@@ -28,6 +27,8 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ShellyDeviceReader>();
         services.AddSingleton<MyUplinkDeviceReader>();
         services.AddSingleton<AirobotThermostatReader>();
+        services.AddSingleton<ModbusDeviceReader>();
+        services.AddSingleton<ElectricityPriceReader>();
         services.AddSingleton<PointValueStore>();
 
         services.AddHttpClient();

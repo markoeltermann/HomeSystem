@@ -99,9 +99,13 @@ public class SolarmanV5Service(ILogger<SolarmanV5Service> logger, IConfiguration
             {
                 var high = modbusFrame[i * 2 + 3];
                 var low = modbusFrame[i * 2 + 4];
-                var value = (ushort)((high << 8) + low);
+                var value = (high << 8) + low;
+                //if (value > 0x7fff)
+                //{
+                //    value -= 0x10000;
+                //}
 
-                values[i] = value;
+                values[i] = (ushort)value;
             }
 
             return values;
