@@ -134,9 +134,9 @@ public class ModbusDeviceReader(
         return value;
     }
 
-    private List<ushort>? GetAddresses(ICollection<DevicePoint> devicePoints)
+    private ICollection<ushort>? GetAddresses(ICollection<DevicePoint> devicePoints)
     {
-        List<ushort> addresses = [];
+        HashSet<ushort> addresses = [];
         foreach (var point in devicePoints)
         {
             if (!point.Address.IsNullOrEmpty())
