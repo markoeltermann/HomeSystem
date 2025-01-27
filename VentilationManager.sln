@@ -35,6 +35,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SolarmanV5Tester", "Solarma
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommonLibrary", "CommonLibrary\CommonLibrary.csproj", "{221C98B8-551D-4BAC-B6DA-3F948E3D9FA1}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TestApps", "TestApps", "{7EC5328D-E73A-45E8-86AF-3F519DFFC53D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -96,6 +98,10 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{CF4A7AD4-9CE8-40C3-A48D-38D182889ED2} = {7EC5328D-E73A-45E8-86AF-3F519DFFC53D}
+		{DD2AB57F-6E29-49C2-BCB8-5045DA02B45D} = {7EC5328D-E73A-45E8-86AF-3F519DFFC53D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {98462C0D-0CD0-46DB-874C-2F0151E01B20}

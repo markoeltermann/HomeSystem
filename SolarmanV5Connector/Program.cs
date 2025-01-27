@@ -12,6 +12,7 @@ builder.Services.AddWindowsService(options =>
 });
 
 builder.Services.AddSingleton<SolarmanV5Service>();
+builder.Services.AddSingleton<ScheduleService>();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ExceptionToProblemDetailsHandler>();
 
@@ -24,9 +25,24 @@ app.UseStatusCodePages();
 app.UseExceptionHandler();
 // Configure the HTTP request pipeline.
 
-app.MapGet("/values", ([FromQuery(Name = "a")] int[] addresses, SolarmanV5Service bacnetService) =>
+app.MapGet("/values", ([FromQuery(Name = "a")] int[] addresses, SolarmanV5Service solarmanService) =>
 {
-    return bacnetService.ReadValues(addresses);
+    return solarmanService.ReadValues(addresses);
+}).WithOpenApi();
+
+app.MapPut("/values/{address}", (int address, int value, SolarmanV5Service solarmanService) =>
+{
+    return solarmanService.WriteValue(address, value);
+}).WithOpenApi();
+
+app.MapGet("/schedule", ([FromServices] ScheduleService scheduleService) =>
+{
+    return scheduleService.GetSchedule();
+}).WithOpenApi();
+
+app.MapPut("/schedule", (ScheduleDto schedule, [FromServices] ScheduleService scheduleService) =>
+{
+    return scheduleService.UpdateSchedule(schedule);
 }).WithOpenApi();
 
 app.Run();
