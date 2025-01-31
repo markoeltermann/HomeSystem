@@ -33,10 +33,16 @@ public class ModbusDeviceReader(
         using var httpClient = httpClientFactory.CreateClient(nameof(ModbusDeviceReader));
         var response = await httpClient.GetAsync(url);
         if (!response.IsSuccessStatusCode)
+        {
+            logger.LogWarning("Modbus connector http response was not successful, code {StatusCode}", response.StatusCode);
             return null;
+        }
         var responseText = await response.Content.ReadAsStringAsync();
         if (string.IsNullOrEmpty(responseText))
+        {
+            logger.LogWarning("Modbus connector http response was empty.");
             return null;
+        }
 
         PointValueDto[]? pointValues;
         try
@@ -49,9 +55,15 @@ public class ModbusDeviceReader(
             return null;
         }
         if (pointValues == null)
+        {
+            logger.LogWarning("Modbus connector http response was null.");
             return null;
+        }
         if (pointValues.Length == 0)
+        {
+            logger.LogWarning("Modbus connector http response was an empty list.");
             return Array.Empty<PointValue>();
+        }
 
         var valueDict = pointValues.ToDictionary(x => x.Address, x => x.Value);
 
