@@ -19,7 +19,8 @@ var optionsBuilder = new DbContextOptionsBuilder<HomeSystemContext>()
 var dbContext = new HomeSystemContext(optionsBuilder.Options);
 
 //await ModbusRegisterProcessor.Run(dbContext);
-await DataAnalyzer.Run();
+//await DataAnalyzer.Run();
+await ConsumptionAnalyser.Run();
 return;
 
 

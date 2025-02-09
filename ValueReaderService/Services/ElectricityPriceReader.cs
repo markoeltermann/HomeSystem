@@ -25,13 +25,14 @@ public class ElectricityPriceReader(
             return null;
         }
 
-        var today = timestamp.ToLocalTime().Date;
+        var timestampLocal = timestamp.ToLocalTime();
+        var today = timestampLocal.Date;
         var tomorrow = today.AddDays(1);
         var todayDate = DateOnly.FromDateTime(today);
         var existingValues = pointValueStore.ReadNumericValues(device.Id, npsPriceRawPoint.Id, todayDate, todayDate.AddDays(1));
 
         if (existingValues.Count(x => x.Item1.Date == today && x.Item2 != null) > 10
-            && (existingValues.Count(x => x.Item1.Date == tomorrow && x.Item2 != null) > 10 || (timestamp - timestamp.Date) < new TimeSpan(14, 45, 0)))
+            && (existingValues.Count(x => x.Item1.Date == tomorrow && x.Item2 != null) > 10 || (timestampLocal - timestampLocal.Date) < new TimeSpan(14, 45, 0)))
         {
             return null;
         }

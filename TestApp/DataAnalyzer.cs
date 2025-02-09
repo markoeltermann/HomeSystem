@@ -31,16 +31,4 @@ public class DataAnalyzer
         }
         return integral;
     }
-
-    public class ValueContainerDto
-    {
-        public NumericValueDto[] Values { get; set; } = null!;
-        public string Unit { get; set; } = null!;
-    }
-
-    public class NumericValueDto
-    {
-        public DateTime Timestamp { get; set; }
-        public double? Value { get; set; }
-    }
 }
