@@ -1,35 +1,64 @@
-﻿using Domain;
+﻿using CommonLibrary.Extensions;
+using CommonLibrary.Helpers;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SharedServices;
 using Web.Client.DTOs;
 
 namespace Web.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-public class DevicePointsController(HomeSystemContext context, PointValueStore pointValueStore) : ControllerBase
+public class DevicePointsController(HttpClient httpClient, IConfiguration configuration) : ControllerBase
 {
     [HttpGet("{pointId}/values")]
-    public async Task<ActionResult<ValueContainerDto>> GetNumericValue(int pointId, DateOnly from, DateOnly upTo)
+    public async Task<ActionResult<ValueContainerDto?>> GetNumericValue(int pointId, DateOnly from, DateOnly upTo)
     {
-        var devicePoint = await context.DevicePoints
-            .Include(x => x.DataType)
-            .Include(x => x.Unit)
-            .FirstOrDefaultAsync(x => x.Id == pointId);
-        if (devicePoint == null)
-            return NotFound();
-        if (devicePoint.DataType.Name is not "Float" and not "Integer" and not "Boolean")
-            return BadRequest("This point is not numeric");
+        var url = GetPointValueRequestUrl(configuration, pointId, from, upTo);
 
-        return new ValueContainerDto
-        {
-            Values = pointValueStore.ReadNumericValues(devicePoint.DeviceId, devicePoint.Id, from, upTo).Select(x => new NumericValueDto
-            {
-                Timestamp = x.Item1,
-                Value = x.Item2
-            }).ToArray(),
-            Unit = devicePoint.DataType.Name is "Boolean" ? "bool" : (devicePoint.Unit?.Name ?? "unk")
-        };
+        return await httpClient.GetFromJsonAsync<ValueContainerDto>(url);
     }
+
+    public static string? GetPointValueRequestUrl(IConfiguration configuration, int pointId, DateOnly from, DateOnly upTo)
+    {
+        var url = configuration["PointValueStoreConnectorUrl"];
+        if (url.IsNullOrEmpty())
+        {
+            return null;
+        }
+
+        url = UrlHelpers.GetUrl(url, $"points/{pointId}/values",
+            [KeyValuePair.Create("from", (string?)from.ToString("yyyy-MM-dd")),
+            KeyValuePair.Create("upTo", (string?)upTo.ToString("yyyy-MM-dd"))]);
+
+        return url;
+    }
+
+    //[HttpPut("{pointId}/values")]
+    //public async Task<ActionResult> SetValues(int pointId, ValueContainerDto values)
+    //{
+    //    if (values == null || values.Values == null)
+    //    {
+    //        return BadRequest("Invalid value container");
+    //    }
+
+    //    if (values.Values.Length == 0)
+    //    {
+    //        return Ok();
+    //    }
+
+    //    var url = configuration["PointValueStoreConnectorUrl"];
+    //    if (url.IsNullOrEmpty())
+    //    {
+    //        return BadRequest("Point value store connector url has not been set up");
+    //    }
+
+    //    url = UrlHelpers.GetUrl(url, $"points/{pointId}/values", null);
+
+    //    var response = await httpClient.PutAsJsonAsync(url, values);
+    //    if (!response.IsSuccessStatusCode)
+    //    {
+    //        return BadRequest("The request to point value store failed with code " + response.StatusCode);
+    //    }
+
+    //    return Ok();
+    //}
 }

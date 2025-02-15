@@ -1,0 +1,137 @@
+﻿@page "/inverter-schedule-manager"
+@using System.Diagnostics.CodeAnalysis
+@using BlazorBootstrap
+@using System.Globalization
+@using Web.Client.DTOs
+@inject HttpClient http
+@inject ToastService ToastService
+@inject NavigationManager navManager
+
+
+<PageTitle>Home</PageTitle>
+
+
+<form class="container-md">
+    <div class="row justify-content-center">
+        <dic class="col col-md-6">
+            <div class="input-group mb-3">
+                <span class="input-group-text">Date</span>
+                <InputDate TValue="DateTime" @bind-Value=SelectedDate @bind-Value:after="DateFromUpdated" class="form-control" />
+            </div>
+        </dic>
+    </div>
+
+    @foreach (var hour in Hours)
+    {
+        <div class="row mb-1 hoverable align-items-center justify-content-center">
+            <div class="col-md-2 col-4">
+                <span>@($"{hour.Hour.ToString().PadLeft(2, '0')}:00")</span>
+            </div>
+            <div class="col-md-2 col-4">
+                <InputCheckbox @bind-Value=hour.IsGridChargeEnabled class="form-check-input" />
+            </div>
+            <div class="col-md-2 col-4">
+                <InputNumber @bind-Value=hour.BatteryLevel class="form-control" />
+            </div>
+        </div>
+    }
+
+    <div class="row justify-content-center">
+        <dic class="col col-md-6 d-flex justify-content-end mt-4">
+            <button type="button" class="btn chart-button-wide btn-primary" @onclick="OnSaveClick">Save</button>
+        </dic>
+    </div>
+</form>
+
+@code {
+
+    [SupplyParameterFromQuery(Name = "d")]
+    public string? SelectedDateQ { get; set; }
+
+    public DateTime SelectedDate { get; set; } = DateTime.Today;
+
+    private HourModel[] Hours { get; set; } = [];
+
+
+    private async Task DateFromUpdated()
+    {
+        navManager.NavigateTo(navManager.GetUriWithQueryParameters(new Dictionary<string, object?> {
+            { "d", SelectedDate.ToString("yyyy-MM-dd") },
+        }));
+        await LoadSchedule();
+    }
+
+    private async Task LoadSchedule()
+    {
+        var schedule = await http.GetFromJsonAsync<DayScheduleDto>($"api/inverterSchedule/{SelectedDate:yyyy-MM-dd}");
+        if (schedule != null && schedule.Hours != null && schedule.Hours.Length == 24)
+        {
+            var hours = new HourModel[24];
+            for (int i = 0; i < 24; i++)
+            {
+                var hourDto = schedule.Hours[i];
+                hours[i] = new HourModel
+                    {
+                        Hour = i,
+                        BatteryLevel = hourDto.BatteryLevel,
+                        IsGridChargeEnabled = hourDto.IsGridChargeEnabled ?? false,
+                    };
+            }
+
+            Hours = hours;
+        }
+    }
+
+    private async Task OnSaveClick()
+    {
+        var scheduleDto = new DayScheduleDto { Hours = new HourlyScheduleDto[24] };
+        for (int i = 0; i < 24; i++)
+        {
+            var hour = Hours[i];
+            scheduleDto.Hours[i] = new HourlyScheduleDto
+                {
+                    Hour = i,
+                    BatteryLevel = hour.BatteryLevel,
+                    IsGridChargeEnabled = hour.BatteryLevel.HasValue ? hour.IsGridChargeEnabled : null,
+                };
+        }
+
+        var result = await http.PutAsJsonAsync($"api/inverterSchedule/{SelectedDate:yyyy-MM-dd}", scheduleDto);
+        if (result.IsSuccessStatusCode)
+        {
+            ToastService.Notify(new(ToastType.Success, "Saved"));
+        }
+        else
+        {
+            ToastService.Notify(new(ToastType.Danger, "Save failed"));
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (SelectedDateQ != null && TryParseDate(SelectedDateQ, out var d))
+            SelectedDate = d;
+
+        var hours = new HourModel[24];
+        for (int i = 0; i < 24; i++)
+        {
+            hours[i] = new HourModel
+                {
+                    Hour = i,
+                };
+        }
+        Hours = hours;
+
+        await LoadSchedule();
+
+        bool TryParseDate(string? s, out DateTime d)
+            => DateTime.TryParseExact(s, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out d);
+    }
+
+    private class HourModel
+    {
+        public int? BatteryLevel { get; set; }
+        public bool IsGridChargeEnabled { get; set; }
+        public int Hour { get; set; }
+    }
+}

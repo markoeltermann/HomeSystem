@@ -4,6 +4,7 @@ using SharedServices;
 using System.Collections.Concurrent;
 using ValueReaderService.Services;
 using ValueReaderService.Services.ChineseRoomController;
+using ValueReaderService.Services.InverterSchedule;
 
 namespace ValueReaderService;
 
@@ -84,6 +85,10 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                         else if (device.Type == "electricity_price")
                         {
                             RunReader<ElectricityPriceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
+                        else if (device.Type == "inverter_schedule")
+                        {
+                            RunReader<InverterScheduleRunner>(serviceProvider, wakeTime, tasks, device, stoppingToken);
                         }
                     }
                 }

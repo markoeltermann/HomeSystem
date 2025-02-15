@@ -81,3 +81,7 @@ h1:focus {
 .loading-bar {
     height: 8px;
 }
+
+.hoverable:hover {
+    background-color: #00000033;
+}

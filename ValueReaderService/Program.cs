@@ -5,6 +5,7 @@ using SharedServices;
 using ValueReaderService;
 using ValueReaderService.Services;
 using ValueReaderService.Services.ChineseRoomController;
+using ValueReaderService.Services.InverterSchedule;
 
 IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((context, services) =>
@@ -29,6 +30,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<AirobotThermostatReader>();
         services.AddSingleton<ModbusDeviceReader>();
         services.AddSingleton<ElectricityPriceReader>();
+        services.AddSingleton<InverterScheduleRunner>();
         services.AddSingleton<PointValueStore>();
 
         services.AddHttpClient();

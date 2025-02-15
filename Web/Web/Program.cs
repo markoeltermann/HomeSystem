@@ -21,6 +21,8 @@ builder.Services.AddWindowsService(options =>
     options.ServiceName = "Home System UI Service";
 });
 
+builder.Services.AddHttpClient();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

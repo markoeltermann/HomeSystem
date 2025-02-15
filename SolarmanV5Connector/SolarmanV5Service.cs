@@ -62,18 +62,21 @@ public class SolarmanV5Service(ILogger<SolarmanV5Service> logger, IConfiguration
             throw new BadRequestException("Address and value must be between 0 and 0xffff");
         }
 
-        var modbusFrame = GetWriteHoldingRegisterFrame(modbusId, (ushort)address, (ushort)value);
-
-        var responseModbusFrame = SendModbusFrame(modbusFrame, loggerSerial, loggerIP, loggerPort);
-        if (responseModbusFrame == null || responseModbusFrame.Length != 8)
+        lock (syncRoot)
         {
-            return false;
-        }
+            var modbusFrame = GetWriteHoldingRegisterFrame(modbusId, (ushort)address, (ushort)value);
 
-        for (int i = 0; i < responseModbusFrame.Length - 2; i++)
-        {
-            if (modbusFrame[i] != responseModbusFrame[i])
+            var responseModbusFrame = SendModbusFrame(modbusFrame, loggerSerial, loggerIP, loggerPort);
+            if (responseModbusFrame == null || responseModbusFrame.Length != 8)
+            {
                 return false;
+            }
+
+            for (int i = 0; i < responseModbusFrame.Length - 2; i++)
+            {
+                if (modbusFrame[i] != responseModbusFrame[i])
+                    return false;
+            }
         }
 
         return true;
