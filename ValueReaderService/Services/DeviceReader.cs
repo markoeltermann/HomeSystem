@@ -23,4 +23,6 @@ public abstract class DeviceReader(ILogger<DeviceReader> logger)
     }
 
     protected abstract Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints);
+
+    public virtual bool StorePointsWithReplace => false;
 }

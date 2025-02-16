@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using ValueReaderService.Services;
 using ValueReaderService.Services.ChineseRoomController;
 using ValueReaderService.Services.InverterSchedule;
+using ValueReaderService.Services.YrNoWeatherForecast;
 
 namespace ValueReaderService;
 
@@ -90,6 +91,10 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                         {
                             RunReader<InverterScheduleRunner>(serviceProvider, wakeTime, tasks, device, stoppingToken);
                         }
+                        else if (device.Type == "yrno_weather_forecast")
+                        {
+                            RunReader<YrNoWeatherForecastReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
                     }
                 }
 
@@ -126,9 +131,19 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                 var pointValues = await reader.ExecuteAsync(device, wakeTime, device.DevicePoints);
                 if (pointValues is not null)
                 {
-                    foreach (var (point, value, timestamp) in pointValues)
+                    if (!reader.StorePointsWithReplace)
                     {
-                        pointValueStore.StoreValue(device.Id, point.Id, timestamp ?? wakeTime, value);
+                        foreach (var (point, value, timestamp) in pointValues)
+                        {
+                            pointValueStore.StoreValue(device.Id, point.Id, timestamp ?? wakeTime, value);
+                        }
+                    }
+                    else
+                    {
+                        foreach (var g in pointValues.GroupBy(x => (x.Point.DeviceId, x.Point.Id)))
+                        {
+                            pointValueStore.StoreValuesWithReplace(g.Key.DeviceId, g.Key.Id, g.Select(x => (x.TimeStamp ?? wakeTime, (string?)x.Value)).ToArray());
+                        }
                     }
                 }
             }

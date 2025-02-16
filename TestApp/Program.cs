@@ -20,9 +20,11 @@ var dbContext = new HomeSystemContext(optionsBuilder.Options);
 
 //await ModbusRegisterProcessor.Run(dbContext);
 //await DataAnalyzer.Run();
-await ConsumptionAnalyser.Run();
-return;
+//await ConsumptionAnalyser.Run();
+//return;
 
+await YrNoModelConverter.Run(dbContext);
+return;
 
 
 
