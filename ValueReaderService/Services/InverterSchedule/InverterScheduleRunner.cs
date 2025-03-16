@@ -46,6 +46,8 @@ public class InverterScheduleRunner(ILogger<DeviceReader> logger, IConfiguration
             return null;
 
         var currentHour = timestampLocal.Hour;
+        if (currentHour > 0)
+            currentHour--;
 
         var schedule = InverterScheduleHelpers.GetCurrentSchedule(changePoints, currentHour);
 
