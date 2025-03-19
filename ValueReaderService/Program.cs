@@ -32,7 +32,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ModbusDeviceReader>();
         services.AddSingleton<ElectricityPriceReader>();
         services.AddSingleton<YrNoWeatherForecastReader>();
-        services.AddSingleton<InverterScheduleRunner>();
+        services.AddScoped<InverterScheduleRunner>();
         services.AddSingleton<PointValueStore>();
         services.AddSingleton<ConfigModel>();
 

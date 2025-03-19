@@ -13,6 +13,7 @@ builder.Services.AddWindowsService(options =>
 
 builder.Services.AddSingleton<SolarmanV5Service>();
 builder.Services.AddSingleton<ScheduleService>();
+builder.Services.AddSingleton<InverterSettingsService>();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ExceptionToProblemDetailsHandler>();
 
@@ -43,6 +44,16 @@ app.MapGet("/schedule", ([FromServices] ScheduleService scheduleService) =>
 app.MapPut("/schedule", (ScheduleDto schedule, [FromServices] ScheduleService scheduleService) =>
 {
     return scheduleService.UpdateSchedule(schedule);
+}).WithOpenApi();
+
+app.MapGet("/inverter-settings", ([FromServices] InverterSettingsService scheduleService) =>
+{
+    return scheduleService.GetSettings();
+}).WithOpenApi();
+
+app.MapPut("/inverter-settings", (InverterSettingsUpdateDto settings, [FromServices] InverterSettingsService scheduleService) =>
+{
+    return scheduleService.UpdateSettings(settings);
 }).WithOpenApi();
 
 app.Run();

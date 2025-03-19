@@ -2,7 +2,7 @@
 
 public class ScheduleService(SolarmanV5Service solarmanV5Service)
 {
-    private static readonly int[] addressesToRead = [148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177];
+    private static readonly int[] addressesToRead = [145, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177];
     public ScheduleDto? GetSchedule()
     {
         var rawValues = solarmanV5Service.ReadValues(addressesToRead);
@@ -43,6 +43,15 @@ public class ScheduleService(SolarmanV5Service solarmanV5Service)
         schedule.SchedulePoint4.IsGridChargeEnabled = (rawValueDict[175] & 0x01) > 0;
         schedule.SchedulePoint5.IsGridChargeEnabled = (rawValueDict[176] & 0x01) > 0;
         schedule.SchedulePoint6.IsGridChargeEnabled = (rawValueDict[177] & 0x01) > 0;
+
+        schedule.SchedulePoint1.IsGridSellEnabled = (rawValueDict[172] & 0x20) > 0;
+        schedule.SchedulePoint2.IsGridSellEnabled = (rawValueDict[173] & 0x20) > 0;
+        schedule.SchedulePoint3.IsGridSellEnabled = (rawValueDict[174] & 0x20) > 0;
+        schedule.SchedulePoint4.IsGridSellEnabled = (rawValueDict[175] & 0x20) > 0;
+        schedule.SchedulePoint5.IsGridSellEnabled = (rawValueDict[176] & 0x20) > 0;
+        schedule.SchedulePoint6.IsGridSellEnabled = (rawValueDict[177] & 0x20) > 0;
+
+        schedule.IsSolarSellEnabled = rawValueDict[145] == 1;
 
         return schedule;
     }
@@ -132,30 +141,35 @@ public class ScheduleService(SolarmanV5Service solarmanV5Service)
             solarmanV5Service.WriteValue(171, schedule.SchedulePoint6.BatteryChargeLevel);
         }
 
-        if (oldSchedule.SchedulePoint1.IsGridChargeEnabled != schedule.SchedulePoint1.IsGridChargeEnabled)
+        if (oldSchedule.SchedulePoint1.GetTimePointFlags() != schedule.SchedulePoint1.GetTimePointFlags())
         {
-            solarmanV5Service.WriteValue(172, schedule.SchedulePoint1.IsGridChargeEnabled ? 1 : 0);
+            solarmanV5Service.WriteValue(172, (int)schedule.SchedulePoint1.GetTimePointFlags());
         }
-        if (oldSchedule.SchedulePoint2.IsGridChargeEnabled != schedule.SchedulePoint2.IsGridChargeEnabled)
+        if (oldSchedule.SchedulePoint2.GetTimePointFlags() != schedule.SchedulePoint2.GetTimePointFlags())
         {
-            solarmanV5Service.WriteValue(173, schedule.SchedulePoint2.IsGridChargeEnabled ? 1 : 0);
+            solarmanV5Service.WriteValue(173, (int)schedule.SchedulePoint2.GetTimePointFlags());
         }
-        if (oldSchedule.SchedulePoint3.IsGridChargeEnabled != schedule.SchedulePoint3.IsGridChargeEnabled)
+        if (oldSchedule.SchedulePoint3.GetTimePointFlags() != schedule.SchedulePoint3.GetTimePointFlags())
         {
-            solarmanV5Service.WriteValue(174, schedule.SchedulePoint3.IsGridChargeEnabled ? 1 : 0);
+            solarmanV5Service.WriteValue(174, (int)schedule.SchedulePoint3.GetTimePointFlags());
         }
-        if (oldSchedule.SchedulePoint4.IsGridChargeEnabled != schedule.SchedulePoint4.IsGridChargeEnabled)
+        if (oldSchedule.SchedulePoint4.GetTimePointFlags() != schedule.SchedulePoint4.GetTimePointFlags())
         {
-            solarmanV5Service.WriteValue(175, schedule.SchedulePoint4.IsGridChargeEnabled ? 1 : 0);
+            solarmanV5Service.WriteValue(175, (int)schedule.SchedulePoint4.GetTimePointFlags());
         }
-        if (oldSchedule.SchedulePoint5.IsGridChargeEnabled != schedule.SchedulePoint5.IsGridChargeEnabled)
+        if (oldSchedule.SchedulePoint5.GetTimePointFlags() != schedule.SchedulePoint5.GetTimePointFlags())
         {
-            solarmanV5Service.WriteValue(176, schedule.SchedulePoint5.IsGridChargeEnabled ? 1 : 0);
+            solarmanV5Service.WriteValue(176, (int)schedule.SchedulePoint5.GetTimePointFlags());
         }
-        if (oldSchedule.SchedulePoint6.IsGridChargeEnabled != schedule.SchedulePoint6.IsGridChargeEnabled)
+        if (oldSchedule.SchedulePoint6.GetTimePointFlags() != schedule.SchedulePoint6.GetTimePointFlags())
         {
-            solarmanV5Service.WriteValue(177, schedule.SchedulePoint6.IsGridChargeEnabled ? 1 : 0);
+            solarmanV5Service.WriteValue(177, (int)schedule.SchedulePoint6.GetTimePointFlags());
         }
+
+        //if (schedule.IsSolarSellEnabled.HasValue && oldSchedule.IsSolarSellEnabled != schedule.IsSolarSellEnabled)
+        //{
+        //    solarmanV5Service.WriteValue(145, schedule.IsSolarSellEnabled.Value ? 1 : 0);
+        //}
 
         return GetSchedule();
     }
@@ -170,7 +184,7 @@ public class ScheduleService(SolarmanV5Service solarmanV5Service)
         Validate(schedule.SchedulePoint6);
     }
 
-    private static void Validate(ScheduleItemDto schedulePoint)
+    private static void Validate(ScheduleItemDto? schedulePoint)
     {
         if (schedulePoint == null)
         {

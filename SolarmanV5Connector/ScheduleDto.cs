@@ -18,4 +18,6 @@ public class ScheduleDto
     public ScheduleItemDto SchedulePoint4 { get; set; }
     public ScheduleItemDto SchedulePoint5 { get; set; }
     public ScheduleItemDto SchedulePoint6 { get; set; }
+
+    public bool IsSolarSellEnabled { get; set; }
 }

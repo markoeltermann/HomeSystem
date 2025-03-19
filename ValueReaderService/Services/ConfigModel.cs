@@ -9,6 +9,7 @@ public class ConfigModel(IConfiguration configuration)
     public decimal? WeatherForecastLatitude() => GetDecimal("WeatherForecastLatitude");
     public decimal? WeatherForecastLongitude() => GetDecimal("WeatherForecastLongitude");
     public decimal? WeatherForecastAltitude() => GetDecimal("WeatherForecastAltitude");
+    public decimal? ElectricitySaleMargin() => GetDecimal("ElectricitySaleMargin");
     public string? WeatherForecastContactEmail() => configuration["WeatherForecastContactEmail"];
 
     private decimal? GetDecimal(string key)

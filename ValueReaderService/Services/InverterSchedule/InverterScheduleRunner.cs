@@ -1,9 +1,16 @@
 ﻿using CommonLibrary.Helpers;
 using Domain;
+using Microsoft.EntityFrameworkCore;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Http.Json;
 
 namespace ValueReaderService.Services.InverterSchedule;
-public class InverterScheduleRunner(ILogger<DeviceReader> logger, IConfiguration configuration, IHttpClientFactory httpClientFactory) : DeviceReader(logger)
+public class InverterScheduleRunner(
+    ILogger<DeviceReader> logger,
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    HomeSystemContext dbContext,
+    ConfigModel configModel) : DeviceReader(logger)
 {
     protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
@@ -15,10 +22,17 @@ public class InverterScheduleRunner(ILogger<DeviceReader> logger, IConfiguration
         if (string.IsNullOrWhiteSpace(pointValueStoreConnectorBaseUrl))
             return null;
 
+        var saleMargin = configModel.ElectricitySaleMargin() ?? 0m;
+
         var batteryLevelPoint = devicePoints.FirstOrDefault(x => x.Address == "battery-level");
         var gridChargeEnablePoint = devicePoints.FirstOrDefault(x => x.Address == "grid-charge-enable");
 
         if (batteryLevelPoint == null || gridChargeEnablePoint == null)
+            return null;
+
+        var electricityPriceDevice = dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefault(x => x.Type == "electricity_price");
+        var electricityPricePoint = electricityPriceDevice?.DevicePoints.FirstOrDefault(x => x.Address == "nps-price-raw");
+        if (electricityPricePoint == null)
             return null;
 
         using var httpClient = httpClientFactory.CreateClient(nameof(InverterScheduleRunner));
@@ -27,38 +41,65 @@ public class InverterScheduleRunner(ILogger<DeviceReader> logger, IConfiguration
         var date = DateOnly.FromDateTime(timestampLocal);
         var batteryLevelValues = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(pointValueStoreConnectorBaseUrl, batteryLevelPoint.Id, date, date));
         var gridChargeEnableValues = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(pointValueStoreConnectorBaseUrl, gridChargeEnablePoint.Id, date, date));
+        var electricityPrices = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(pointValueStoreConnectorBaseUrl, electricityPricePoint.Id, date, date));
 
-        if (batteryLevelValues == null || batteryLevelValues.Values == null || batteryLevelValues.Values.Length != 24 * 6 + 1 || batteryLevelValues.Values[0].Value == null)
+
+        if (ValidateValues(batteryLevelValues) && ValidateValues(gridChargeEnableValues))
         {
-            return null;
+            var changePoints = GetChangePoints(batteryLevelValues, gridChargeEnableValues);
+            if (changePoints == null)
+                return null;
+
+            var currentHour = timestampLocal.Hour;
+            if (currentHour > 0)
+                currentHour--;
+
+            var schedule = InverterScheduleHelpers.GetCurrentSchedule(changePoints, currentHour);
+
+            //var scheduleUpdateUrl = UrlHelpers.GetUrl(inverterConnectorBaseUrl, "schedule", null);
+            //var result = await httpClient.PutAsJsonAsync(scheduleUpdateUrl, schedule);
+            //if (!result.IsSuccessStatusCode)
+            //{
+            //    Logger.LogError("Schedule update request failed with status {ResponseStatus}", result.StatusCode);
+            //}
         }
 
-        if (gridChargeEnableValues == null
-            || gridChargeEnableValues.Values == null
-            || gridChargeEnableValues.Values.Length != 24 * 6 + 1
-            || gridChargeEnableValues.Values[0].Value == null)
+        if (ValidateValues(electricityPrices))
         {
-            return null;
+            double? currentPrice = null;
+            for (int i = 0; i < electricityPrices.Values.Length - 1; i++)
+            {
+                var price = electricityPrices.Values[i];
+                var nextPrice = electricityPrices.Values[i + 1];
+                if (price.Timestamp <= timestampLocal && nextPrice.Timestamp > timestampLocal)
+                {
+                    currentPrice = price.Value;
+                    break;
+                }
+            }
+            if (currentPrice != null)
+            {
+                var settings = new InverterSettingsUpdateDto
+                {
+                    IsSolarSellEnabled = (decimal)currentPrice.Value > saleMargin
+                };
+
+                var settingsUpdateUrl = UrlHelpers.GetUrl(inverterConnectorBaseUrl, "inverter-settings", null);
+                var result = await httpClient.PutAsJsonAsync(settingsUpdateUrl, settings);
+                if (!result.IsSuccessStatusCode)
+                {
+                    Logger.LogError("Settings update request failed with status {ResponseStatus}", result.StatusCode);
+                }
+            }
         }
 
-        var changePoints = GetChangePoints(batteryLevelValues, gridChargeEnableValues);
-        if (changePoints == null)
-            return null;
-
-        var currentHour = timestampLocal.Hour;
-        if (currentHour > 0)
-            currentHour--;
-
-        var schedule = InverterScheduleHelpers.GetCurrentSchedule(changePoints, currentHour);
-
-        var scheduleUpdateUrl = UrlHelpers.GetUrl(inverterConnectorBaseUrl, "schedule", null);
-        var result = await httpClient.PutAsJsonAsync(scheduleUpdateUrl, schedule);
-        if (!result.IsSuccessStatusCode)
-        {
-            Logger.LogError("Schedule update request failed with status {ResponseStatus}", result.StatusCode);
-        }
 
         return null;
+    }
+
+    private static bool ValidateValues([NotNullWhen(true)] ValueContainerDto? batteryLevelValues)
+    {
+        return batteryLevelValues != null && batteryLevelValues.Values != null && batteryLevelValues.Values.Length == 24 * 6 + 1 && batteryLevelValues.Values[0].Value != null;
     }
 
     private static int TruncateBatteryLevel(int level)
