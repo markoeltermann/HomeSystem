@@ -56,12 +56,12 @@ public class InverterScheduleRunner(
 
             var schedule = InverterScheduleHelpers.GetCurrentSchedule(changePoints, currentHour);
 
-            //var scheduleUpdateUrl = UrlHelpers.GetUrl(inverterConnectorBaseUrl, "schedule", null);
-            //var result = await httpClient.PutAsJsonAsync(scheduleUpdateUrl, schedule);
-            //if (!result.IsSuccessStatusCode)
-            //{
-            //    Logger.LogError("Schedule update request failed with status {ResponseStatus}", result.StatusCode);
-            //}
+            var scheduleUpdateUrl = UrlHelpers.GetUrl(inverterConnectorBaseUrl, "schedule", null);
+            var result = await httpClient.PutAsJsonAsync(scheduleUpdateUrl, schedule);
+            if (!result.IsSuccessStatusCode)
+            {
+                Logger.LogError("Schedule update request failed with status {ResponseStatus}", result.StatusCode);
+            }
         }
 
         if (ValidateValues(electricityPrices))
