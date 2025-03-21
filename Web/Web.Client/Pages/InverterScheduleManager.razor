@@ -11,7 +11,7 @@
 <PageTitle>Home</PageTitle>
 
 
-<form class="container-md">
+<form class="container-md" @onsubmit="OnSaveClick">
     <div class="row justify-content-center">
         <dic class="col col-md-6">
             <div class="input-group mb-3">
@@ -21,16 +21,34 @@
         </dic>
     </div>
 
+    <div class="row mb-1 hoverable align-items-center justify-content-center">
+        <div class="col-md-2 col-3">
+            <span>Hour</span>
+        </div>
+        <div class="col-md-1 col-3">
+            <span>Grid charge</span>
+        </div>
+        <div class="col-md-1 col-3">
+            <span>Adaptive sell</span>
+        </div>
+        <div class="col-md-2 col-3">
+            <span>Battery level</span>
+        </div>
+    </div>
+
     @foreach (var hour in Hours)
     {
         <div class="row mb-1 hoverable align-items-center justify-content-center">
-            <div class="col-md-2 col-4">
+            <div class="col-md-2 col-3">
                 <span>@($"{hour.Hour.ToString().PadLeft(2, '0')}:00")</span>
             </div>
-            <div class="col-md-2 col-4">
+            <div class="col-md-1 col-3 d-flex justify-content-center">
                 <InputCheckbox @bind-Value=hour.IsGridChargeEnabled class="form-check-input" />
             </div>
-            <div class="col-md-2 col-4">
+            <div class="col-md-1 col-3 d-flex justify-content-center">
+                <InputCheckbox @bind-Value=hour.IsAdaptiveSellEnabled class="form-check-input" />
+            </div>
+            <div class="col-md-2 col-3">
                 <InputNumber @bind-Value=hour.BatteryLevel class="form-control" />
             </div>
         </div>
@@ -38,7 +56,7 @@
 
     <div class="row justify-content-center">
         <dic class="col col-md-6 d-flex justify-content-end mt-4">
-            <button type="button" class="btn chart-button-wide btn-primary" @onclick="OnSaveClick">Save</button>
+            <button type="submit" class="btn chart-button-wide btn-primary">Save</button>
         </dic>
     </div>
 </form>
@@ -75,6 +93,7 @@
                         Hour = i,
                         BatteryLevel = hourDto.BatteryLevel,
                         IsGridChargeEnabled = hourDto.IsGridChargeEnabled ?? false,
+                        IsAdaptiveSellEnabled = hourDto.IsAdaptiveSellEnabled ?? false,
                     };
             }
 
@@ -93,6 +112,7 @@
                     Hour = i,
                     BatteryLevel = hour.BatteryLevel,
                     IsGridChargeEnabled = hour.BatteryLevel.HasValue ? hour.IsGridChargeEnabled : null,
+                    IsAdaptiveSellEnabled = hour.BatteryLevel.HasValue ? hour.IsAdaptiveSellEnabled : null,
                 };
         }
 
@@ -132,6 +152,7 @@
     {
         public int? BatteryLevel { get; set; }
         public bool IsGridChargeEnabled { get; set; }
+        public bool IsAdaptiveSellEnabled { get; set; }
         public int Hour { get; set; }
     }
 }

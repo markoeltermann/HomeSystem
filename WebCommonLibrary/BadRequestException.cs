@@ -1,3 +1,3 @@
-﻿namespace SolarmanV5Connector;
+﻿namespace WebCommonLibrary;
 
 public class BadRequestException(string message) : Exception(message) { }

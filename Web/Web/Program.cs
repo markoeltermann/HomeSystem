@@ -2,6 +2,7 @@ using Domain;
 using Microsoft.EntityFrameworkCore;
 using SharedServices;
 using Web.Components;
+using WebCommonLibrary;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,8 @@ builder.Services.AddWindowsService(options =>
 });
 
 builder.Services.AddHttpClient();
+
+builder.Services.AddExceptionHandler<ExceptionToProblemDetailsHandler>();
 
 var app = builder.Build();
 

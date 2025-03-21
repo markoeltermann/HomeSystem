@@ -19,6 +19,8 @@ public partial class DevicePoint
 
     public bool IsFrequentReadEnabled { get; set; }
 
+    public string? Type { get; set; }
+
     public virtual DataType DataType { get; set; } = null!;
 
     public virtual Device Device { get; set; } = null!;

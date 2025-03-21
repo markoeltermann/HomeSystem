@@ -26,13 +26,21 @@ public class InverterScheduleRunner(
 
         var batteryLevelPoint = devicePoints.FirstOrDefault(x => x.Address == "battery-level");
         var gridChargeEnablePoint = devicePoints.FirstOrDefault(x => x.Address == "grid-charge-enable");
+        var adaptiveSellEnablePoint = devicePoints.FirstOrDefault(x => x.Address == "adaptive-sell-enable");
 
-        if (batteryLevelPoint == null || gridChargeEnablePoint == null)
+        if (batteryLevelPoint == null || gridChargeEnablePoint == null || adaptiveSellEnablePoint == null)
             return null;
 
-        var electricityPriceDevice = dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefault(x => x.Type == "electricity_price");
+        var devices = await dbContext.Devices.AsNoTracking().Include(x => x.DevicePoints).Where(x => x.Type == "electricity_price" || x.Type == "deye_inverter").ToArrayAsync();
+
+        var electricityPriceDevice = devices.FirstOrDefault(x => x.Type == "electricity_price");
         var electricityPricePoint = electricityPriceDevice?.DevicePoints.FirstOrDefault(x => x.Address == "nps-price-raw");
         if (electricityPricePoint == null)
+            return null;
+
+        var inverterDevice = devices.FirstOrDefault(x => x.Type == "deye_inverter");
+        var actualBatteryLevelPoint = inverterDevice?.DevicePoints.FirstOrDefault(x => x.Type == "battery-level");
+        if (actualBatteryLevelPoint == null)
             return null;
 
         using var httpClient = httpClientFactory.CreateClient(nameof(InverterScheduleRunner));
@@ -42,9 +50,13 @@ public class InverterScheduleRunner(
         var batteryLevelValues = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(pointValueStoreConnectorBaseUrl, batteryLevelPoint.Id, date, date));
         var gridChargeEnableValues = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(pointValueStoreConnectorBaseUrl, gridChargeEnablePoint.Id, date, date));
         var electricityPrices = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(pointValueStoreConnectorBaseUrl, electricityPricePoint.Id, date, date));
+        var actualBatteryLevelValues = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(pointValueStoreConnectorBaseUrl, actualBatteryLevelPoint.Id, date, date));
+        var adaptiveSellEnableValues = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(pointValueStoreConnectorBaseUrl, adaptiveSellEnablePoint.Id, date, date));
 
+        if (!ValidateValues(batteryLevelValues, true))
+            return null;
 
-        if (ValidateValues(batteryLevelValues) && ValidateValues(gridChargeEnableValues))
+        if (ValidateValues(gridChargeEnableValues, true))
         {
             var changePoints = GetChangePoints(batteryLevelValues, gridChargeEnableValues);
             if (changePoints == null)
@@ -66,29 +78,33 @@ public class InverterScheduleRunner(
 
         if (ValidateValues(electricityPrices))
         {
-            double? currentPrice = null;
-            for (int i = 0; i < electricityPrices.Values.Length - 1; i++)
-            {
-                var price = electricityPrices.Values[i];
-                var nextPrice = electricityPrices.Values[i + 1];
-                if (price.Timestamp <= timestampLocal && nextPrice.Timestamp > timestampLocal)
-                {
-                    currentPrice = price.Value;
-                    break;
-                }
-            }
+            var currentPrice = GetCurrentValue(timestampLocal, electricityPrices);
             if (currentPrice != null)
             {
                 var settings = new InverterSettingsUpdateDto
                 {
                     IsSolarSellEnabled = (decimal)currentPrice.Value > saleMargin
                 };
+                await UpdateInverterSettings(inverterConnectorBaseUrl, httpClient, settings);
+            }
+        }
 
-                var settingsUpdateUrl = UrlHelpers.GetUrl(inverterConnectorBaseUrl, "inverter-settings", null);
-                var result = await httpClient.PutAsJsonAsync(settingsUpdateUrl, settings);
-                if (!result.IsSuccessStatusCode)
+        if (ValidateValues(actualBatteryLevelValues) && ValidateValues(adaptiveSellEnableValues))
+        {
+            var inverterSettings = await dbContext.InverterSettings.AsNoTracking().FirstOrDefaultAsync();
+            if (inverterSettings != null)
+            {
+                var isAdaptiveSellEnabled = (GetCurrentValue(timestampLocal, adaptiveSellEnableValues) ?? 0.0) > 0.0;
+                var currentActualBatteryLevel = GetCurrentValue(timestampLocal, actualBatteryLevelValues);
+                var currentBatteryLevel = GetCurrentValue(timestampLocal, batteryLevelValues);
+
+                if (currentBatteryLevel != null && currentActualBatteryLevel != null)
                 {
-                    Logger.LogError("Settings update request failed with status {ResponseStatus}", result.StatusCode);
+                    var settings = new InverterSettingsUpdateDto
+                    {
+                        MaxChargeCurrent = isAdaptiveSellEnabled && (currentActualBatteryLevel.Value - currentBatteryLevel.Value >= 10.0) ? 0 : inverterSettings.BatteryChargeCurrent,
+                    };
+                    await UpdateInverterSettings(inverterConnectorBaseUrl, httpClient, settings);
                 }
             }
         }
@@ -97,9 +113,41 @@ public class InverterScheduleRunner(
         return null;
     }
 
-    private static bool ValidateValues([NotNullWhen(true)] ValueContainerDto? batteryLevelValues)
+    private async Task UpdateInverterSettings(string inverterConnectorBaseUrl, HttpClient httpClient, InverterSettingsUpdateDto settings)
     {
-        return batteryLevelValues != null && batteryLevelValues.Values != null && batteryLevelValues.Values.Length == 24 * 6 + 1 && batteryLevelValues.Values[0].Value != null;
+        var settingsUpdateUrl = UrlHelpers.GetUrl(inverterConnectorBaseUrl, "inverter-settings", null);
+        var result = await httpClient.PutAsJsonAsync(settingsUpdateUrl, settings);
+        if (!result.IsSuccessStatusCode)
+        {
+            Logger.LogError("Settings update request failed with status {ResponseStatus}", result.StatusCode);
+        }
+    }
+
+    private static double? GetCurrentValue(DateTime timestampLocal, ValueContainerDto values)
+    {
+        double? value = null;
+        for (int i = 0; i < values.Values.Length - 1; i++)
+        {
+            var price = values.Values[i];
+            var nextPrice = values.Values[i + 1];
+            if (price.Timestamp <= timestampLocal && nextPrice.Timestamp > timestampLocal)
+            {
+                value = price.Value;
+                break;
+            }
+        }
+
+        return value;
+    }
+
+    private static bool ValidateValues([NotNullWhen(true)] ValueContainerDto? batteryLevelValues, bool firstMustBeSet = false)
+    {
+        if (batteryLevelValues != null && batteryLevelValues.Values != null && batteryLevelValues.Values.Length == 24 * 6 + 1)
+        {
+            return !firstMustBeSet || batteryLevelValues.Values[0].Value != null;
+        }
+
+        return false;
     }
 
     private static int TruncateBatteryLevel(int level)

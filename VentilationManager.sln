@@ -43,6 +43,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{779F9605
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValueReaderServiceTests", "ValueReaderServiceTests\ValueReaderServiceTests.csproj", "{4C77CAB3-D471-48CF-B245-2FE63833534C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebCommonLibrary", "WebCommonLibrary\WebCommonLibrary.csproj", "{E03A98A4-F738-4FAF-BD0E-936E9BB2D1D5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -109,6 +111,10 @@ Global
 		{4C77CAB3-D471-48CF-B245-2FE63833534C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4C77CAB3-D471-48CF-B245-2FE63833534C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4C77CAB3-D471-48CF-B245-2FE63833534C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E03A98A4-F738-4FAF-BD0E-936E9BB2D1D5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E03A98A4-F738-4FAF-BD0E-936E9BB2D1D5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E03A98A4-F738-4FAF-BD0E-936E9BB2D1D5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E03A98A4-F738-4FAF-BD0E-936E9BB2D1D5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

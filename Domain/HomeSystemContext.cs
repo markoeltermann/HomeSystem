@@ -19,6 +19,8 @@ public partial class HomeSystemContext : DbContext
 
     public virtual DbSet<EnumMember> EnumMembers { get; set; }
 
+    public virtual DbSet<InverterSetting> InverterSettings { get; set; }
+
     public virtual DbSet<Job> Jobs { get; set; }
 
     public virtual DbSet<Unit> Units { get; set; }
@@ -72,6 +74,7 @@ public partial class HomeSystemContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(255)
                 .HasColumnName("name");
+            entity.Property(e => e.Type).HasColumnName("type");
             entity.Property(e => e.UnitId).HasColumnName("unit_id");
 
             entity.HasOne(d => d.DataType).WithMany(p => p.DevicePoints)
@@ -105,6 +108,15 @@ public partial class HomeSystemContext : DbContext
                 .HasForeignKey(d => d.DevicePointId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("device_point_id");
+        });
+
+        modelBuilder.Entity<InverterSetting>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToTable("inverter_settings");
+
+            entity.Property(e => e.BatteryChargeCurrent).HasColumnName("battery_charge_current");
         });
 
         modelBuilder.Entity<Job>(entity =>

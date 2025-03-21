@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using WebCommonLibrary;
 
 namespace SolarmanV5Connector;
 

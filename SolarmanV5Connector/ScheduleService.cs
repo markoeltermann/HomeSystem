@@ -1,4 +1,6 @@
-﻿namespace SolarmanV5Connector;
+﻿using WebCommonLibrary;
+
+namespace SolarmanV5Connector;
 
 public class ScheduleService(SolarmanV5Service solarmanV5Service)
 {

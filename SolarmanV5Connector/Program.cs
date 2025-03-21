@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using SolarmanV5Connector;
+using WebCommonLibrary;
 
 var builder = WebApplication.CreateBuilder(args);
 
