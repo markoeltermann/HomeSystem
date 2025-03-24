@@ -15,15 +15,15 @@
             {
                 if (item.Points != null)
                 {
-                    <span>@item.Name</span>
+                                <span>@item.Name</span>
                     @foreach (var point in item.Points)
                     {
-                        <div class="form-check ms-3">
-                            <InputCheckbox class="form-check-input" id="@("point" + point.Id)" @bind-Value=point.IsSelected @bind-Value:after="SelectedValuesUpdated" />
-                            <label class="form-check-label" for="@("point" + point.Id)">
+                                        <div class="form-check ms-3">
+                                            <InputCheckbox class="form-check-input" id="@("point" + point.Id)" @bind-Value=point.IsSelected @bind-Value:after="SelectedValuesUpdated" />
+                                            <label class="form-check-label" for="@("point" + point.Id)">
                                 @(point.DataTypeName![0..1] + " " + point.Name + (point.Unit != null ? $" ({point.Unit})" : null))
-                            </label>
-                        </div>
+                                            </label>
+                                        </div>
                     }
                 }
             }
@@ -49,9 +49,9 @@
                     </div>
                     @if (IsLoading)
                     {
-                        <div class="progress mt-2 loading-bar" role="progressbar">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div>
-                        </div>
+                            <div class="progress mt-2 loading-bar" role="progressbar">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div>
+                            </div>
                     }
                 </div>
                 <button type="button" class="btn chart-button-narrow btn-primary me-2" @onclick="SelectedValuesUpdated">↺</button>
@@ -68,12 +68,12 @@
                 <ApexChart TItem="NumericValueDto" Options="Options" @ref="apexChart" XAxisType="XAxisType.Datetime">
                     @foreach (var series in Values)
                     {
-                        <ApexPointSeries TItem="NumericValueDto"
-                                         Items="series.Item2"
-                                         Name="@series.Item1"
-                                         SeriesType="SeriesType.Line"
-                                         XValue="@(e => e.Timestamp)"
-                                         YValue="@(e => (decimal?)e.Value)" />
+                            <ApexPointSeries TItem="NumericValueDto"
+                                             Items="series.Item2"
+                                             Name="@series.Item1"
+                                             SeriesType="SeriesType.Line"
+                                             XValue="@(e => e.Timestamp)"
+                                             YValue="@(e => (decimal?)e.Value)" />
                     }
 
                 </ApexChart>
@@ -225,6 +225,13 @@
                         yAxis.Min = 0.0;
                         yAxis.Max = 100.0;
                     }
+                    var fractionDigits = unitValues.Key == "EUR/kWh" ? 4 : 1;
+                    yAxis.Labels = new YAxisLabels
+                        {
+                            Formatter = $"function (value) {{" +
+                                        $"return value?.toLocaleString(undefined, {{ minimumFractionDigits: {fractionDigits}, maximumFractionDigits: {fractionDigits} }}); }}",
+                            Show = unitValues.Key != "bool",
+                        };
                     yAxes.Add(yAxis);
                     isFirstInGroup = false;
                 }

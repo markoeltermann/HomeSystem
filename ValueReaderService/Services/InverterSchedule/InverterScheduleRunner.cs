@@ -14,6 +14,10 @@ public class InverterScheduleRunner(
 {
     protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
+#if !DEBUG
+        await Task.Delay(TimeSpan.FromSeconds(10));
+#endif
+
         var inverterConnectorBaseUrl = configuration["ModbusConnectorUrl"];
         if (string.IsNullOrWhiteSpace(inverterConnectorBaseUrl))
             return null;
@@ -69,12 +73,16 @@ public class InverterScheduleRunner(
             var schedule = InverterScheduleHelpers.GetCurrentSchedule(changePoints, currentHour);
 
             var scheduleUpdateUrl = UrlHelpers.GetUrl(inverterConnectorBaseUrl, "schedule", null);
-            var result = await httpClient.PutAsJsonAsync(scheduleUpdateUrl, schedule);
-            if (!result.IsSuccessStatusCode)
-            {
-                Logger.LogError("Schedule update request failed with status {ResponseStatus}", result.StatusCode);
-            }
+            //var result = await httpClient.PutAsJsonAsync(scheduleUpdateUrl, schedule);
+            //if (!result.IsSuccessStatusCode)
+            //{
+            //    Logger.LogError("Schedule update request failed with status {ResponseStatus}", result.StatusCode);
+            //}
+#if !DEBUG
+            await Task.Delay(50);
+#endif
         }
+
 
         if (ValidateValues(electricityPrices))
         {
@@ -85,9 +93,13 @@ public class InverterScheduleRunner(
                 {
                     IsSolarSellEnabled = (decimal)currentPrice.Value > saleMargin
                 };
-                await UpdateInverterSettings(inverterConnectorBaseUrl, httpClient, settings);
+                //await UpdateInverterSettings(inverterConnectorBaseUrl, httpClient, settings);
+#if !DEBUG
+                await Task.Delay(50);
+#endif
             }
         }
+
 
         if (ValidateValues(actualBatteryLevelValues) && ValidateValues(adaptiveSellEnableValues))
         {
@@ -105,6 +117,9 @@ public class InverterScheduleRunner(
                         MaxChargeCurrent = isAdaptiveSellEnabled && (currentActualBatteryLevel.Value - currentBatteryLevel.Value >= 10.0) ? 0 : inverterSettings.BatteryChargeCurrent,
                     };
                     await UpdateInverterSettings(inverterConnectorBaseUrl, httpClient, settings);
+#if !DEBUG
+                    await Task.Delay(50);
+#endif
                 }
             }
         }

@@ -1,9 +1,7 @@
 ﻿using Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Kiota.Abstractions.Serialization;
 using MyUplinkConnector;
-using TestApp;
 
 var builder = new ConfigurationBuilder()
             .SetBasePath(Path.GetDirectoryName(typeof(Program).Assembly.Location))
@@ -23,8 +21,8 @@ var dbContext = new HomeSystemContext(optionsBuilder.Options);
 //await ConsumptionAnalyser.Run();
 //return;
 
-await YrNoModelConverter.Run(dbContext);
-return;
+//await YrNoModelConverter.Run(dbContext);
+//return;
 
 
 
@@ -491,6 +489,16 @@ var deviceId = systems?.Systems?.FirstOrDefault()?.Devices?.FirstOrDefault()?.Id
 if (deviceId == null)
     return;
 
+var x = await client.V2.Devices[deviceId].Points.PatchAsync(new MyUplinkConnector.Client.V2.Devices.Item.Points.PointsPatchRequestBody
+{
+    AdditionalData = new Dictionary<string, object>
+    {
+        ["47011"] = "-1"
+    }
+});
+
+Console.ReadLine();
+
 //var heatPumpDevice = new Device
 //{
 //    Name = "Heat pump",
@@ -506,57 +514,57 @@ if (deviceId == null)
 //dbContext.Devices.Add(heatPumpDevice);
 //dbContext.SaveChanges();
 
-var heatPumpDevice = dbContext.Devices.FirstOrDefault(x => x.Type == "heat_pump");
-//heatPumpDevice.Address = JsonSerializer.Serialize(new DeviceAddress
+//var heatPumpDevice = dbContext.Devices.FirstOrDefault(x => x.Type == "heat_pump");
+////heatPumpDevice.Address = JsonSerializer.Serialize(new DeviceAddress
+////{
+////    DeviceId = deviceId,
+////    ClientId = "6d34a8a5-0c56-4f0e-a492-b8b167977b80",
+////    ClientSecret = "8BACD656E79135A7A39980A1E074E77C"
+////}, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
+////dbContext.SaveChanges();
+
+//var units = dbContext.Units.ToDictionary(x => x.Name);
+//var dataTypes = dbContext.DataTypes.ToDictionary(x => x.Name);
+//var floatDataType = dataTypes["Float"];
+
+//var points = await client.V2.Devices[deviceId].Points.GetAsync();
+
+//foreach (var point in points!)
 //{
-//    DeviceId = deviceId,
-//    ClientId = "6d34a8a5-0c56-4f0e-a492-b8b167977b80",
-//    ClientSecret = "8BACD656E79135A7A39980A1E074E77C"
-//}, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
+//    int.TryParse(point.ParameterId, out var parameterId);
+
+//    //if (point.ParameterUnit is "°C" or "bar" or "Hz" or "A" && parameterId <= 44701 && parameterId > 0)
+//    if (point.ParameterUnit is "%" && parameterId > 0)
+//    {
+//        var name = point.ParameterName ?? "";
+//        for (int i = 1; i < name.Length - 1; i++)
+//        {
+//            var cp = name[i - 1];
+//            var c = name[i];
+//            var cn = name[i + 1];
+//            if ((c == '-' || c == (char)173) && char.IsLetter(cp) && char.IsLetter(cn))
+//                name = name[..i] + name[(i + 1)..];
+//        }
+
+//        var rawValue = point.Value;
+//        string value = rawValue?.ToString() ?? "";
+//        if (rawValue is UntypedDecimal untypedDecimal)
+//            value = untypedDecimal.GetValue().ToString();
+//        Console.WriteLine($"{point.ParameterId} {name,-40} {point.StrVal,-10} {value,-10} {point.ParameterUnit} {string.Join(", ", point.EnumValues!.Select(x => x.Text + " " + x.Value))}");
+
+//        var devicePoint = new DevicePoint
+//        {
+//            Device = heatPumpDevice!,
+//            Name = name,
+//            Address = parameterId.ToString(),
+//            DataType = floatDataType,
+//            Unit = units[point.ParameterUnit],
+//        };
+//        dbContext.DevicePoints.Add(devicePoint);
+//    }
+//}
+
 //dbContext.SaveChanges();
-
-var units = dbContext.Units.ToDictionary(x => x.Name);
-var dataTypes = dbContext.DataTypes.ToDictionary(x => x.Name);
-var floatDataType = dataTypes["Float"];
-
-var points = await client.V2.Devices[deviceId].Points.GetAsync();
-
-foreach (var point in points!)
-{
-    int.TryParse(point.ParameterId, out var parameterId);
-
-    //if (point.ParameterUnit is "°C" or "bar" or "Hz" or "A" && parameterId <= 44701 && parameterId > 0)
-    if (point.ParameterUnit is "%" && parameterId > 0)
-    {
-        var name = point.ParameterName ?? "";
-        for (int i = 1; i < name.Length - 1; i++)
-        {
-            var cp = name[i - 1];
-            var c = name[i];
-            var cn = name[i + 1];
-            if ((c == '-' || c == (char)173) && char.IsLetter(cp) && char.IsLetter(cn))
-                name = name[..i] + name[(i + 1)..];
-        }
-
-        var rawValue = point.Value;
-        string value = rawValue?.ToString() ?? "";
-        if (rawValue is UntypedDecimal untypedDecimal)
-            value = untypedDecimal.GetValue().ToString();
-        Console.WriteLine($"{point.ParameterId} {name,-40} {point.StrVal,-10} {value,-10} {point.ParameterUnit} {string.Join(", ", point.EnumValues!.Select(x => x.Text + " " + x.Value))}");
-
-        var devicePoint = new DevicePoint
-        {
-            Device = heatPumpDevice!,
-            Name = name,
-            Address = parameterId.ToString(),
-            DataType = floatDataType,
-            Unit = units[point.ParameterUnit],
-        };
-        dbContext.DevicePoints.Add(devicePoint);
-    }
-}
-
-dbContext.SaveChanges();
 
 Console.ReadLine();
 

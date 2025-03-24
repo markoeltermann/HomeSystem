@@ -79,6 +79,8 @@ public class ModbusDeviceReader(
                 {
                     if (point.DataType.Name == "Integer")
                         result.Add(new(point, ((int)Math.Round(value.Value)).ToString(CultureInfo.InvariantCulture)));
+                    else if (point.DataType.Name == "Boolean")
+                        result.Add(new(point, (value.Value > 0.0).ToString()));
                     else
                         result.Add(new(point, Math.Round(value.Value, 2).ToString(CultureInfo.InvariantCulture)));
                 }
