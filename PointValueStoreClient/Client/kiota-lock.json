@@ -1,0 +1,33 @@
+{
+  "descriptionHash": "88E72004D4F963F76E7E4B3E71546513AB4C4AB3C0F591B3BDE36A9C8FB88D1300A4DFF2346ED4539DFF0459E0D54155716A9AD524ABAE203D93A49D22C3AAB4",
+  "descriptionLocation": "../swagger.json",
+  "lockFileVersion": "1.0.0",
+  "kiotaVersion": "1.16.0",
+  "clientClassName": "PointValueStore",
+  "clientNamespaceName": "PointValueStoreClient",
+  "language": "CSharp",
+  "usesBackingStore": false,
+  "excludeBackwardCompatible": false,
+  "includeAdditionalData": true,
+  "disableSSLValidation": false,
+  "serializers": [
+    "Microsoft.Kiota.Serialization.Json.JsonSerializationWriterFactory",
+    "Microsoft.Kiota.Serialization.Text.TextSerializationWriterFactory",
+    "Microsoft.Kiota.Serialization.Form.FormSerializationWriterFactory",
+    "Microsoft.Kiota.Serialization.Multipart.MultipartSerializationWriterFactory"
+  ],
+  "deserializers": [
+    "Microsoft.Kiota.Serialization.Json.JsonParseNodeFactory",
+    "Microsoft.Kiota.Serialization.Text.TextParseNodeFactory",
+    "Microsoft.Kiota.Serialization.Form.FormParseNodeFactory"
+  ],
+  "structuredMimeTypes": [
+    "application/json",
+    "text/plain;q=0.9",
+    "application/x-www-form-urlencoded;q=0.2",
+    "multipart/form-data;q=0.1"
+  ],
+  "includePatterns": [],
+  "excludePatterns": [],
+  "disabledValidationRules": []
+}

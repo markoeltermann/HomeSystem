@@ -1,9 +1,8 @@
-﻿using CommonLibrary.Helpers;
-using Domain;
+﻿using Domain;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Web.Client.DTOs;
-using WebCommonLibrary;
+using Web.Helpers;
 
 namespace Web.Controllers;
 
@@ -12,7 +11,7 @@ namespace Web.Controllers;
 public class InverterScheduleController(HomeSystemContext context, HttpClient httpClient, IConfiguration configuration) : ControllerBase
 {
     [HttpGet("{date}")]
-    public async Task<ActionResult<DayScheduleDto>> Get(DateOnly date)
+    public async Task<ActionResult<InverterDayScheduleDto>> Get(DateOnly date)
     {
         var points = await context.DevicePoints.AsNoTrackingWithIdentityResolution().Where(x => x.Device.Type == "inverter_schedule").ToArrayAsync();
         if (points.Length < 3)
@@ -20,16 +19,18 @@ public class InverterScheduleController(HomeSystemContext context, HttpClient ht
             return NotFound("Schedule points have not been configured");
         }
 
-        var batteryLevelValues = await GetPointValues(points, "battery-level", date);
-        var gridChargeEnableValues = await GetPointValues(points, "grid-charge-enable", date);
-        var adaptiveSellEnableValues = await GetPointValues(points, "adaptive-sell-enable", date);
+        var baseUrl = configuration["PointValueStoreConnectorUrl"];
 
-        var result = new DayScheduleDto { Hours = new HourlyScheduleDto[24] };
+        var batteryLevelValues = await PointValueStoreHelpers.GetPointValues(points, "battery-level", date, httpClient, baseUrl);
+        var gridChargeEnableValues = await PointValueStoreHelpers.GetPointValues(points, "grid-charge-enable", date, httpClient, baseUrl);
+        var adaptiveSellEnableValues = await PointValueStoreHelpers.GetPointValues(points, "adaptive-sell-enable", date, httpClient, baseUrl);
+
+        var result = new InverterDayScheduleDto { Hours = new InverterHourlyScheduleDto[24] };
         for (int i = 0; i < 24; i++)
         {
             var isGridChargeEnabled = gridChargeEnableValues.Values.FirstOrDefault(x => x.Timestamp.Hour == i)?.Value;
             var isAdaptiveSellEnabled = adaptiveSellEnableValues.Values.FirstOrDefault(x => x.Timestamp.Hour == i)?.Value;
-            var hour = new HourlyScheduleDto
+            var hour = new InverterHourlyScheduleDto
             {
                 IsGridChargeEnabled = isGridChargeEnabled.HasValue ? isGridChargeEnabled.Value > 0.0 : null,
                 BatteryLevel = (int?)batteryLevelValues.Values.FirstOrDefault(x => x.Timestamp.Hour == i)?.Value,
@@ -42,21 +43,9 @@ public class InverterScheduleController(HomeSystemContext context, HttpClient ht
     }
 
     [HttpPut("{date}")]
-    public async Task<ActionResult> Put(DateOnly date, DayScheduleDto daySchedule)
+    public async Task<ActionResult> Put(DateOnly date, InverterDayScheduleDto daySchedule)
     {
-        if (daySchedule == null || daySchedule.Hours == null || daySchedule.Hours.Length != 24)
-        {
-            return BadRequest("Invalid schedule");
-        }
-
-        var hours = daySchedule.Hours.OrderBy(x => x.Hour).ToArray();
-        for (int i = 0; i < 24; i++)
-        {
-            if (hours[i].Hour != i)
-            {
-                return BadRequest("Invalid schedule");
-            }
-        }
+        DayScheduleHelpers.ValidateDaySchedule(daySchedule);
 
         var points = await context.DevicePoints.AsNoTrackingWithIdentityResolution().Where(x => x.Device.Type == "inverter_schedule").ToArrayAsync();
         if (points.Length < 3)
@@ -103,67 +92,22 @@ public class InverterScheduleController(HomeSystemContext context, HttpClient ht
                 ? ((hourSchedule.IsGridChargeEnabled ?? false) ? 1.0 : 0.0)
                 : null;
 
-            gridChargeEnableValues.Values[i * 6] = new NumericValueDto { Timestamp = time, Value = gridChargeEnable };
-            gridChargeEnableValues.Values[i * 6 + 1] = new NumericValueDto { Timestamp = time.AddMinutes(10), Value = gridChargeEnable };
-            gridChargeEnableValues.Values[i * 6 + 2] = new NumericValueDto { Timestamp = time.AddMinutes(20), Value = gridChargeEnable };
-            gridChargeEnableValues.Values[i * 6 + 3] = new NumericValueDto { Timestamp = time.AddMinutes(30), Value = gridChargeEnable };
-            gridChargeEnableValues.Values[i * 6 + 4] = new NumericValueDto { Timestamp = time.AddMinutes(40), Value = gridChargeEnable };
-            gridChargeEnableValues.Values[i * 6 + 5] = new NumericValueDto { Timestamp = time.AddMinutes(50), Value = gridChargeEnable };
-
-            batteryLevelValues.Values[i * 6] = new NumericValueDto { Timestamp = time, Value = batteryLevel };
-            batteryLevelValues.Values[i * 6 + 1] = new NumericValueDto { Timestamp = time.AddMinutes(10), Value = batteryLevel };
-            batteryLevelValues.Values[i * 6 + 2] = new NumericValueDto { Timestamp = time.AddMinutes(20), Value = batteryLevel };
-            batteryLevelValues.Values[i * 6 + 3] = new NumericValueDto { Timestamp = time.AddMinutes(30), Value = batteryLevel };
-            batteryLevelValues.Values[i * 6 + 4] = new NumericValueDto { Timestamp = time.AddMinutes(40), Value = batteryLevel };
-            batteryLevelValues.Values[i * 6 + 5] = new NumericValueDto { Timestamp = time.AddMinutes(50), Value = batteryLevel };
+            PointValueStoreHelpers.FillHour(gridChargeEnableValues, i, time, gridChargeEnable);
+            PointValueStoreHelpers.FillHour(batteryLevelValues, i, time, batteryLevel);
 
             double? adaptiveChargeEnable = batteryLevel.HasValue
                 ? ((hourSchedule.IsAdaptiveSellEnabled ?? false) ? 1.0 : 0.0)
                 : null;
-            adaptiveSellEnableValues.Values[i * 6] = new NumericValueDto { Timestamp = time, Value = adaptiveChargeEnable };
-            adaptiveSellEnableValues.Values[i * 6 + 1] = new NumericValueDto { Timestamp = time.AddMinutes(10), Value = adaptiveChargeEnable };
-            adaptiveSellEnableValues.Values[i * 6 + 2] = new NumericValueDto { Timestamp = time.AddMinutes(20), Value = adaptiveChargeEnable };
-            adaptiveSellEnableValues.Values[i * 6 + 3] = new NumericValueDto { Timestamp = time.AddMinutes(30), Value = adaptiveChargeEnable };
-            adaptiveSellEnableValues.Values[i * 6 + 4] = new NumericValueDto { Timestamp = time.AddMinutes(40), Value = adaptiveChargeEnable };
-            adaptiveSellEnableValues.Values[i * 6 + 5] = new NumericValueDto { Timestamp = time.AddMinutes(50), Value = adaptiveChargeEnable };
+
+            PointValueStoreHelpers.FillHour(adaptiveSellEnableValues, i, time, adaptiveChargeEnable);
         }
 
         var baseUrl = configuration["PointValueStoreConnectorUrl"];
-        var url = UrlHelpers.GetUrl(baseUrl!, $"points/{gridChargeEnablePoint.Id}/values", null);
-        var response = await httpClient.PutAsJsonAsync(url, gridChargeEnableValues);
-        if (!response.IsSuccessStatusCode)
-        {
-            return BadRequest("The request to point value store failed with code " + response.StatusCode);
-        }
 
-        url = UrlHelpers.GetUrl(baseUrl!, $"points/{batteryLevelPoint.Id}/values", null);
-        response = await httpClient.PutAsJsonAsync(url, batteryLevelValues);
-        if (!response.IsSuccessStatusCode)
-        {
-            return BadRequest("The request to point value store failed with code " + response.StatusCode);
-        }
-
-        url = UrlHelpers.GetUrl(baseUrl!, $"points/{adaptiveSellEnablePoint.Id}/values", null);
-        response = await httpClient.PutAsJsonAsync(url, adaptiveSellEnableValues);
-        if (!response.IsSuccessStatusCode)
-        {
-            return BadRequest("The request to point value store failed with code " + response.StatusCode);
-        }
+        await PointValueStoreHelpers.UpdatePoints(gridChargeEnablePoint, gridChargeEnableValues, baseUrl, httpClient);
+        await PointValueStoreHelpers.UpdatePoints(batteryLevelPoint, batteryLevelValues, baseUrl, httpClient);
+        await PointValueStoreHelpers.UpdatePoints(adaptiveSellEnablePoint, adaptiveSellEnableValues, baseUrl, httpClient);
 
         return Ok();
-    }
-
-    private async Task<ValueContainerDto> GetPointValues(DevicePoint[] points, string address, DateOnly date)
-    {
-        var point = points.FirstOrDefault(x => x.Address == address) ?? throw new BadRequestException("Schedule points have not been configured");
-
-        var values = await httpClient.GetFromJsonAsync<ValueContainerDto>(DevicePointsController.GetPointValueRequestUrl(configuration, point.Id, date, date));
-
-        if (values == null || values.Values == null || values.Values.Length != 24 * 6 + 1)
-        {
-            throw new BadRequestException($"{address} values could not be retrieved");
-        }
-
-        return values;
     }
 }

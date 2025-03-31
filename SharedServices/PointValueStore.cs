@@ -139,7 +139,7 @@ public class PointValueStore(ILogger<PointValueStore> logger)
     {
         var location = Path.Combine(StoreLocation, deviceId.ToString(), devicePointId.ToString());
         var format = frequent ? "yyyy-MM-ddTHH" : "yyyy-MM";
-        var fileName = date.ToString(format) + ".txt";
+        var fileName = date.ToUniversalTime().ToString(format) + ".txt";
         if (frequent)
         {
             fileName = "frequent_" + fileName;
@@ -148,15 +148,15 @@ public class PointValueStore(ILogger<PointValueStore> logger)
         return (location, path);
     }
 
-    public List<(DateTime, double?)> ReadNumericValues(int deviceId, int devicePointId, DateOnly from, DateOnly upTo)
+    public List<(DateTime, double?)> ReadNumericValues(int deviceId, int devicePointId, DateOnly from, DateOnly upTo, bool utc = false)
     {
         var result = new SortedDictionary<DateTime, double?>();
 
         var fromD = from.ToDateTime(new TimeOnly()).ToUniversalTime();
         var upToD = upTo.ToDateTime(new TimeOnly()).AddDays(1).ToUniversalTime();
-        var upToDLocal = upToD.ToLocalTime();
+        var upToDLocal = utc ? upToD : upToD.ToLocalTime();
 
-        var t = fromD.ToLocalTime();
+        var t = utc ? fromD : fromD.ToLocalTime();
         while (t <= upToDLocal)
         {
             result[t] = null;
@@ -187,11 +187,11 @@ public class PointValueStore(ILogger<PointValueStore> logger)
                             {
                                 if (double.TryParse(rawValue, out var value))
                                 {
-                                    result[timestamp.ToLocalTime()] = value;
+                                    result[utc ? timestamp : timestamp.ToLocalTime()] = value;
                                 }
                                 else if (bool.TryParse(rawValue, out var b))
                                 {
-                                    result[timestamp.ToLocalTime()] = b ? 1 : 0;
+                                    result[utc ? timestamp : timestamp.ToLocalTime()] = b ? 1 : 0;
                                 }
                             }
                         }

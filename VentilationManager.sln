@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.3.32929.385
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VentilationManager", "VentilationManager\VentilationManager.csproj", "{62D6FC69-8B91-4736-939F-8A78C049ADF8}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{62230114-02E0-4479-B84C-C2CDF78375D4}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
@@ -45,16 +43,14 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValueReaderServiceTests", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebCommonLibrary", "WebCommonLibrary\WebCommonLibrary.csproj", "{E03A98A4-F738-4FAF-BD0E-936E9BB2D1D5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PointValueStoreClient", "PointValueStoreClient\PointValueStoreClient.csproj", "{23AE9B7E-272A-46A0-81EC-C1964C850112}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{62D6FC69-8B91-4736-939F-8A78C049ADF8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{62D6FC69-8B91-4736-939F-8A78C049ADF8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{62D6FC69-8B91-4736-939F-8A78C049ADF8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{62D6FC69-8B91-4736-939F-8A78C049ADF8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{CF4A7AD4-9CE8-40C3-A48D-38D182889ED2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{CF4A7AD4-9CE8-40C3-A48D-38D182889ED2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CF4A7AD4-9CE8-40C3-A48D-38D182889ED2}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -115,6 +111,10 @@ Global
 		{E03A98A4-F738-4FAF-BD0E-936E9BB2D1D5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E03A98A4-F738-4FAF-BD0E-936E9BB2D1D5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E03A98A4-F738-4FAF-BD0E-936E9BB2D1D5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{23AE9B7E-272A-46A0-81EC-C1964C850112}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{23AE9B7E-272A-46A0-81EC-C1964C850112}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{23AE9B7E-272A-46A0-81EC-C1964C850112}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{23AE9B7E-272A-46A0-81EC-C1964C850112}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

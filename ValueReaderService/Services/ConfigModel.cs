@@ -11,6 +11,7 @@ public class ConfigModel(IConfiguration configuration)
     public decimal? WeatherForecastAltitude() => GetDecimal("WeatherForecastAltitude");
     public decimal? ElectricitySaleMargin() => GetDecimal("ElectricitySaleMargin");
     public string? WeatherForecastContactEmail() => configuration["WeatherForecastContactEmail"];
+    public string? PointValueStoreConnectorUrl() => configuration["PointValueStoreConnectorUrl"];
 
     private decimal? GetDecimal(string key)
     {

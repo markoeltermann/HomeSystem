@@ -1,4 +1,4 @@
-﻿@page "/inverter-schedule-manager"
+﻿@page "/heat-pump-schedule-manager"
 @using System.Diagnostics.CodeAnalysis
 @using BlazorBootstrap
 @using System.Globalization
@@ -8,13 +8,13 @@
 @inject NavigationManager navManager
 
 
-<PageTitle>Inverter schedule</PageTitle>
+<PageTitle>Heat pump schedule</PageTitle>
 
 <div class="container-md mb-4">
     <div class="row justify-content-center">
         <dic class="col col-md-6 d-flex justify-content-end">
-            <NavLink href="heat-pump-schedule-manager">
-                <span>Heat pump schedule</span>
+            <NavLink href="inverter-schedule-manager">
+                <span>Inverter schedule</span>
             </NavLink>
         </dic>
     </div>
@@ -34,14 +34,11 @@
         <div class="col-md-2 col-3">
             <span>Hour</span>
         </div>
-        <div class="col-md-1 col-3">
-            <span>Grid charge</span>
-        </div>
-        <div class="col-md-1 col-3">
-            <span>Adaptive sell</span>
+        <div class="col-md-2 col-3">
+            <span>Heating offset</span>
         </div>
         <div class="col-md-2 col-3">
-            <span>Battery level</span>
+            <span>Hot water mode</span>
         </div>
     </div>
 
@@ -51,14 +48,11 @@
             <div class="col-md-2 col-3">
                 <span>@($"{hour.Hour.ToString().PadLeft(2, '0')}:00")</span>
             </div>
-            <div class="col-md-1 col-3 d-flex justify-content-center">
-                <InputCheckbox @bind-Value=hour.IsGridChargeEnabled class="form-check-input" />
-            </div>
-            <div class="col-md-1 col-3 d-flex justify-content-center">
-                <InputCheckbox @bind-Value=hour.IsAdaptiveSellEnabled class="form-check-input" />
+            <div class="col-md-2 col-3">
+                <InputNumber @bind-Value=hour.HeatingOffset class="form-control" />
             </div>
             <div class="col-md-2 col-3">
-                <InputNumber @bind-Value=hour.BatteryLevel class="form-control" />
+                <InputNumber @bind-Value=hour.HotWaterMode class="form-control" />
             </div>
         </div>
     }
@@ -90,7 +84,7 @@
 
     private async Task LoadSchedule()
     {
-        var schedule = await http.GetFromJsonAsync<InverterDayScheduleDto>($"api/inverterSchedule/{SelectedDate:yyyy-MM-dd}");
+        var schedule = await http.GetFromJsonAsync<HeatPumpDayScheduleDto>($"api/heatPumpSchedule/{SelectedDate:yyyy-MM-dd}");
         if (schedule != null && schedule.Hours != null && schedule.Hours.Length == 24)
         {
             var hours = new HourModel[24];
@@ -100,9 +94,8 @@
                 hours[i] = new HourModel
                     {
                         Hour = i,
-                        BatteryLevel = hourDto.BatteryLevel,
-                        IsGridChargeEnabled = hourDto.IsGridChargeEnabled ?? false,
-                        IsAdaptiveSellEnabled = hourDto.IsAdaptiveSellEnabled ?? false,
+                        HeatingOffset = hourDto.HeatingOffset,
+                        HotWaterMode = hourDto.HotWaterMode,
                     };
             }
 
@@ -112,20 +105,19 @@
 
     private async Task OnSaveClick()
     {
-        var scheduleDto = new InverterDayScheduleDto { Hours = new InverterHourlyScheduleDto[24] };
+        var scheduleDto = new HeatPumpDayScheduleDto { Hours = new HeatPumpHourlyScheduleDto[24] };
         for (int i = 0; i < 24; i++)
         {
             var hour = Hours[i];
-            scheduleDto.Hours[i] = new InverterHourlyScheduleDto
+            scheduleDto.Hours[i] = new HeatPumpHourlyScheduleDto
                 {
                     Hour = i,
-                    BatteryLevel = hour.BatteryLevel,
-                    IsGridChargeEnabled = hour.BatteryLevel.HasValue ? hour.IsGridChargeEnabled : null,
-                    IsAdaptiveSellEnabled = hour.BatteryLevel.HasValue ? hour.IsAdaptiveSellEnabled : null,
+                    HeatingOffset = hour.HeatingOffset,
+                    HotWaterMode = hour.HotWaterMode,
                 };
         }
 
-        var result = await http.PutAsJsonAsync($"api/inverterSchedule/{SelectedDate:yyyy-MM-dd}", scheduleDto);
+        var result = await http.PutAsJsonAsync($"api/heatPumpSchedule/{SelectedDate:yyyy-MM-dd}", scheduleDto);
         if (result.IsSuccessStatusCode)
         {
             ToastService.Notify(new(ToastType.Success, "Saved"));
@@ -159,9 +151,8 @@
 
     private class HourModel
     {
-        public int? BatteryLevel { get; set; }
-        public bool IsGridChargeEnabled { get; set; }
-        public bool IsAdaptiveSellEnabled { get; set; }
+        public int? HeatingOffset { get; set; }
+        public int? HotWaterMode { get; set; }
         public int Hour { get; set; }
     }
 }

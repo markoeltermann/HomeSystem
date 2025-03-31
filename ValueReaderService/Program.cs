@@ -33,8 +33,10 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ElectricityPriceReader>();
         services.AddSingleton<YrNoWeatherForecastReader>();
         services.AddScoped<InverterScheduleRunner>();
+        services.AddScoped<HeatPumpScheduleRunner>();
         services.AddSingleton<PointValueStore>();
         services.AddSingleton<ConfigModel>();
+        services.AddScoped<PointValueStoreAdapter>();
 
         services.AddHttpClient();
     })

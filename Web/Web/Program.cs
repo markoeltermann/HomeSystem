@@ -1,6 +1,5 @@
 using Domain;
 using Microsoft.EntityFrameworkCore;
-using SharedServices;
 using Web.Components;
 using WebCommonLibrary;
 
@@ -15,7 +14,6 @@ builder.Services.AddControllers();
 builder.Services.AddDbContext<HomeSystemContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("HomeSystemContext")));
 
-builder.Services.AddSingleton<PointValueStore>();
 
 builder.Services.AddWindowsService(options =>
 {

@@ -29,7 +29,7 @@ public class ElectricityPriceReader(
         var today = timestampLocal.Date;
         var tomorrow = today.AddDays(1);
         var todayDate = DateOnly.FromDateTime(today);
-        var existingValues = pointValueStore.ReadNumericValues(device.Id, npsPriceRawPoint.Id, todayDate, todayDate.AddDays(1));
+        var existingValues = pointValueStore.ReadNumericValues(device.Id, npsPriceRawPoint.Id, todayDate, todayDate.AddDays(1), true);
 
         if (existingValues.Count(x => x.Item1.Date == today && x.Item2 != null) > 10
             && (existingValues.Count(x => x.Item1.Date == tomorrow && x.Item2 != null) > 10 || (timestampLocal - timestampLocal.Date) < new TimeSpan(14, 45, 0)))
@@ -49,7 +49,7 @@ public class ElectricityPriceReader(
             return null;
         }
 
-        var existingValueDict = existingValues.ToDictionary(x => x.Item1.ToUniversalTime(), x => x.Item2);
+        var existingValueDict = existingValues.ToDictionary(x => x.Item1, x => x.Item2);
 
         var result = new List<PointValue>();
         foreach (var item in npsResponse.Data.EE.Where(x => x.UnixTimestamp.HasValue && x.Price.HasValue))

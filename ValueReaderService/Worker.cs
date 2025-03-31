@@ -95,6 +95,10 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                         {
                             RunReader<YrNoWeatherForecastReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
                         }
+                        else if (device.Type == "heat_pump_schedule")
+                        {
+                            RunReader<HeatPumpScheduleRunner>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
                     }
                 }
 

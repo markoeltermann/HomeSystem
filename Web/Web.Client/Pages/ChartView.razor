@@ -229,7 +229,7 @@
                     yAxis.Labels = new YAxisLabels
                         {
                             Formatter = $"function (value) {{" +
-                                        $"return value?.toLocaleString(undefined, {{ minimumFractionDigits: {fractionDigits}, maximumFractionDigits: {fractionDigits} }}); }}",
+                                        $"return value?.toLocaleString(undefined, {{ minimumFractionDigits: {fractionDigits}, maximumFractionDigits: {fractionDigits}, useGrouping: false }}); }}",
                             Show = unitValues.Key != "bool",
                         };
                     yAxes.Add(yAxis);

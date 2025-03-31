@@ -1,7 +1,6 @@
-﻿using CommonLibrary.Extensions;
-using CommonLibrary.Helpers;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Web.Client.DTOs;
+using Web.Helpers;
 
 namespace Web.Controllers;
 
@@ -12,24 +11,9 @@ public class DevicePointsController(HttpClient httpClient, IConfiguration config
     [HttpGet("{pointId}/values")]
     public async Task<ActionResult<ValueContainerDto?>> GetNumericValue(int pointId, DateOnly from, DateOnly upTo)
     {
-        var url = GetPointValueRequestUrl(configuration, pointId, from, upTo);
+        var url = PointValueStoreHelpers.GetPointValueRequestUrl(pointId, from, upTo, configuration["PointValueStoreConnectorUrl"]);
 
         return await httpClient.GetFromJsonAsync<ValueContainerDto>(url);
-    }
-
-    public static string? GetPointValueRequestUrl(IConfiguration configuration, int pointId, DateOnly from, DateOnly upTo)
-    {
-        var url = configuration["PointValueStoreConnectorUrl"];
-        if (url.IsNullOrEmpty())
-        {
-            return null;
-        }
-
-        url = UrlHelpers.GetUrl(url, $"points/{pointId}/values",
-            [KeyValuePair.Create("from", (string?)from.ToString("yyyy-MM-dd")),
-            KeyValuePair.Create("upTo", (string?)upTo.ToString("yyyy-MM-dd"))]);
-
-        return url;
     }
 
     //[HttpPut("{pointId}/values")]
