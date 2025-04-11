@@ -114,7 +114,7 @@ public class InverterScheduleRunner(
                 {
                     var settings = new InverterSettingsUpdateDto
                     {
-                        MaxChargeCurrent = isAdaptiveSellEnabled && (currentActualBatteryLevel.Value - currentBatteryLevel.Value >= 10.0) ? 0 : inverterSettings.BatteryChargeCurrent,
+                        MaxChargeCurrent = isAdaptiveSellEnabled && (currentActualBatteryLevel.Value - currentBatteryLevel.Value >= 5.0) ? 0 : inverterSettings.BatteryChargeCurrent,
                     };
                     await UpdateInverterSettings(inverterConnectorBaseUrl, httpClient, settings);
 #if !DEBUG
