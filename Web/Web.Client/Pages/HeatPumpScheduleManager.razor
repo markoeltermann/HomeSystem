@@ -13,7 +13,7 @@
 <div class="container-md mb-4">
     <div class="row justify-content-center">
         <dic class="col col-md-6 d-flex justify-content-end">
-            <NavLink href="inverter-schedule-manager">
+            <NavLink href="@GetInverterScheduleUrl()">
                 <span>Inverter schedule</span>
             </NavLink>
         </dic>
@@ -147,6 +147,14 @@
 
         bool TryParseDate(string? s, out DateTime d)
             => DateTime.TryParseExact(s, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out d);
+    }
+
+    private string GetInverterScheduleUrl()
+    {
+        var url = "inverter-schedule-manager";
+        if (SelectedDateQ != null)
+            url += $"?d={SelectedDate:yyyy-MM-dd}";
+        return url;
     }
 
     private class HourModel

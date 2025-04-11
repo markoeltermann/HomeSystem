@@ -13,7 +13,7 @@
 <div class="container-md mb-4">
     <div class="row justify-content-center">
         <dic class="col col-md-6 d-flex justify-content-end">
-            <NavLink href="heat-pump-schedule-manager">
+            <NavLink href="@GetHeatPumpScheduleUrl()">
                 <span>Heat pump schedule</span>
             </NavLink>
         </dic>
@@ -155,6 +155,14 @@
 
         bool TryParseDate(string? s, out DateTime d)
             => DateTime.TryParseExact(s, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out d);
+    }
+
+    private string GetHeatPumpScheduleUrl()
+    {
+        var url = "heat-pump-schedule-manager";
+        if (SelectedDateQ != null)
+            url += $"?d={SelectedDate:yyyy-MM-dd}";
+        return url;
     }
 
     private class HourModel
