@@ -71,11 +71,14 @@ h1:focus {
 }
 
 .chart-button-wide {
-    width: 90px;
+    width: 125px;
 }
 
 .chart-button-narrow {
-    width: 35px;
+    width: 32px;
+    max-width: 32px;
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
 }
 
 .loading-bar {
