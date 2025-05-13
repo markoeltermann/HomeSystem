@@ -1,5 +1,4 @@
-﻿using CommonLibrary.Extensions;
-using Domain;
+﻿using Domain;
 using System.Net.Http.Json;
 
 namespace ValueReaderService.Services.YrNoWeatherForecast;
@@ -22,11 +21,9 @@ public class YrNoWeatherForecastReader(ILogger<DeviceReader> logger, ConfigModel
         var lon = configModel.WeatherForecastLongitude();
         var altitude = configModel.WeatherForecastAltitude();
         var email = configModel.WeatherForecastContactEmail();
-        if (lat == null || lon == null || altitude == null || email.IsNullOrEmpty())
-            return null;
 
         var url = "https://api.met.no/weatherapi/locationforecast/2.0/complete?" +
-            $"altitude={altitude.Value.ToString(InvariantCulture)}&lat={lat.Value.ToString(InvariantCulture)}&lon={lon.Value.ToString(InvariantCulture)}";
+            $"altitude={altitude.ToString(InvariantCulture)}&lat={lat.ToString(InvariantCulture)}&lon={lon.ToString(InvariantCulture)}";
 
         using var httpClient = httpClientFactory.CreateClient(nameof(YrNoWeatherForecastReader));
         httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", $"HomeSystem {email}");

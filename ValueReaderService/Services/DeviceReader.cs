@@ -15,6 +15,11 @@ public abstract class DeviceReader(ILogger<DeviceReader> logger)
         {
             return await ExecuteAsyncInternal(device, timestamp, devicePoints);
         }
+        catch (MissingConfigKeyException mex)
+        {
+            logger.LogError(mex, "Config key {ConfigKey} is missing from appSettings or its value is invalid", mex.ConfigKey);
+            return null;
+        }
         catch (Exception e)
         {
             logger.LogError(e, "Device reader execution has failed");

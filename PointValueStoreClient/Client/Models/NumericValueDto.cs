@@ -11,6 +11,14 @@ namespace PointValueStoreClient.Models
     public partial class NumericValueDto : IParsable
     #pragma warning restore CS1591
     {
+        /// <summary>The stringValue property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? StringValue { get; set; }
+#nullable restore
+#else
+        public string StringValue { get; set; }
+#endif
         /// <summary>The timestamp property</summary>
         public DateTimeOffset? Timestamp { get; set; }
         /// <summary>The value property</summary>
@@ -33,6 +41,7 @@ namespace PointValueStoreClient.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "stringValue", n => { StringValue = n.GetStringValue(); } },
                 { "timestamp", n => { Timestamp = n.GetDateTimeOffsetValue(); } },
                 { "value", n => { Value = n.GetDoubleValue(); } },
             };
@@ -44,6 +53,7 @@ namespace PointValueStoreClient.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             _ = writer ?? throw new ArgumentNullException(nameof(writer));
+            writer.WriteStringValue("stringValue", StringValue);
             writer.WriteDateTimeOffsetValue("timestamp", Timestamp);
             writer.WriteDoubleValue("value", Value);
         }

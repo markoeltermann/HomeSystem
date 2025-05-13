@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using ValueReaderService.Services;
 using ValueReaderService.Services.ChineseRoomController;
 using ValueReaderService.Services.InverterSchedule;
+using ValueReaderService.Services.SolarModel;
 using ValueReaderService.Services.YrNoWeatherForecast;
 
 namespace ValueReaderService;
@@ -99,6 +100,10 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                         {
                             RunReader<HeatPumpScheduleRunner>(serviceProvider, wakeTime, tasks, device, stoppingToken);
                         }
+                        else if (device.Type == "solar_model")
+                        {
+                            RunReader<SolarModelRunner>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
                     }
                 }
 
@@ -144,9 +149,10 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                     }
                     else
                     {
+                        var pointValueStoreAdapter = scope.ServiceProvider.GetRequiredService<PointValueStoreAdapter>();
                         foreach (var g in pointValues.GroupBy(x => (x.Point.DeviceId, x.Point.Id)))
                         {
-                            pointValueStore.StoreValuesWithReplace(g.Key.DeviceId, g.Key.Id, g.Select(x => (x.TimeStamp ?? wakeTime, (string?)x.Value)).ToArray());
+                            await pointValueStoreAdapter.StoreValuesWithReplace(g.Key.Id, [.. g], wakeTime);
                         }
                     }
                 }
@@ -292,6 +298,16 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
         if (deviceType == "electricity_price")
         {
             return new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc).AddHours(1);
+        }
+        else if (deviceType == "solar_model")
+        {
+            var d = new DateTime(now.Year, now.Month, now.Day, 12, 0, 0, DateTimeKind.Utc);
+            if (d - now < TimeSpan.FromMinutes(5))
+            {
+                d = d.AddDays(1);
+            }
+
+            return d;
         }
         else
         {

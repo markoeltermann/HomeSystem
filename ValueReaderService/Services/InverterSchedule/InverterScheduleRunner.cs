@@ -26,7 +26,7 @@ public class InverterScheduleRunner(
         if (string.IsNullOrWhiteSpace(pointValueStoreConnectorBaseUrl))
             return null;
 
-        var saleMargin = configModel.ElectricitySaleMargin() ?? 0m;
+        var saleMargin = configModel.ElectricitySaleMargin();
 
         var batteryLevelPoint = devicePoints.FirstOrDefault(x => x.Address == "battery-level");
         var gridChargeEnablePoint = devicePoints.FirstOrDefault(x => x.Address == "grid-charge-enable");

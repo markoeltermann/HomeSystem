@@ -6,6 +6,7 @@ using ValueReaderService;
 using ValueReaderService.Services;
 using ValueReaderService.Services.ChineseRoomController;
 using ValueReaderService.Services.InverterSchedule;
+using ValueReaderService.Services.SolarModel;
 using ValueReaderService.Services.YrNoWeatherForecast;
 
 IHost host = Host.CreateDefaultBuilder(args)
@@ -34,6 +35,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<YrNoWeatherForecastReader>();
         services.AddScoped<InverterScheduleRunner>();
         services.AddScoped<HeatPumpScheduleRunner>();
+        services.AddScoped<SolarModelRunner>();
         services.AddSingleton<PointValueStore>();
         services.AddSingleton<ConfigModel>();
         services.AddScoped<PointValueStoreAdapter>();

@@ -46,4 +46,17 @@ public class PointValueStoreAdapter
 
         return value;
     }
+
+    public async Task StoreValuesWithReplace(int devicePointId, IList<PointValue> values, DateTime defaultTimestamp)
+    {
+        var body = new ValueContainerDto
+        {
+            Values = [.. values.Select(x => new NumericValueDto
+            {
+                Timestamp = x.TimeStamp ?? defaultTimestamp,
+                StringValue = x.Value,
+            })]
+        };
+        await pointValueStore.Points[devicePointId].Values.PutAsync(body);
+    }
 }

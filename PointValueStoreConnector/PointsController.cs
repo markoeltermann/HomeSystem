@@ -60,7 +60,11 @@ public class PointsController(HomeSystemContext context, PointValueStore pointVa
         var processedValues = values.Values.Select(x =>
         {
             string? value = null;
-            if (x.Value != null)
+            if (x.StringValue != null)
+            {
+                value = x.StringValue;
+            }
+            else if (x.Value != null)
             {
                 value = devicePoint.DataType.Name switch
                 {
@@ -70,7 +74,7 @@ public class PointsController(HomeSystemContext context, PointValueStore pointVa
                     _ => throw new Exception(),
                 };
             }
-            return (x.Timestamp, value);
+            return (x.Timestamp.ToUniversalTime(), value);
         }).ToArray();
 
         pointValueStore.StoreValuesWithReplace(devicePoint.DeviceId, devicePoint.Id, processedValues);
