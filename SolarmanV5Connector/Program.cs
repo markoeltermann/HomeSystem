@@ -45,7 +45,8 @@ app.MapGet("/schedule", ([FromServices] ScheduleService scheduleService) =>
 app.MapPut("/schedule", (ScheduleDto schedule, [FromServices] ScheduleService scheduleService) =>
 {
     return scheduleService.UpdateSchedule(schedule);
-}).WithOpenApi();
+}).WithOpenApi()
+.WithName("UpdateSchedule");
 
 app.MapGet("/inverter-settings", ([FromServices] InverterSettingsService scheduleService) =>
 {

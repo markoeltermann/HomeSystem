@@ -12,6 +12,7 @@ public class ConfigModel(IConfiguration configuration)
     public decimal ElectricitySaleMargin() => GetDecimal("ElectricitySaleMargin");
     public string WeatherForecastContactEmail() => GetString("WeatherForecastContactEmail");
     public string PointValueStoreConnectorUrl() => GetString("PointValueStoreConnectorUrl");
+    public string ModbusConnectorUrl() => GetString("ModbusConnectorUrl");
 
     private decimal GetDecimal(string key)
     {

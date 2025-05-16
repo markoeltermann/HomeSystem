@@ -1,15 +1,16 @@
 ﻿using CommonLibrary.Helpers;
 using Domain;
 using Microsoft.EntityFrameworkCore;
+using PointValueStoreClient.Models;
+using SolarmanV5Client.Models;
 using System.Diagnostics.CodeAnalysis;
-using System.Net.Http.Json;
 
 namespace ValueReaderService.Services.InverterSchedule;
 public class InverterScheduleRunner(
     ILogger<DeviceReader> logger,
-    IConfiguration configuration,
-    IHttpClientFactory httpClientFactory,
     HomeSystemContext dbContext,
+    PointValueStoreAdapter pointValueStoreAdapter,
+    SolarmanV5Adapter solarmanV5Adapter,
     ConfigModel configModel) : DeviceReader(logger)
 {
     protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
@@ -17,22 +18,14 @@ public class InverterScheduleRunner(
 #if !DEBUG
         await Task.Delay(TimeSpan.FromSeconds(10));
 #endif
-
-        var inverterConnectorBaseUrl = configuration["ModbusConnectorUrl"];
-        if (string.IsNullOrWhiteSpace(inverterConnectorBaseUrl))
-            return null;
-
-        var pointValueStoreConnectorBaseUrl = configuration["PointValueStoreConnectorUrl"];
-        if (string.IsNullOrWhiteSpace(pointValueStoreConnectorBaseUrl))
-            return null;
-
         var saleMargin = configModel.ElectricitySaleMargin();
 
         var batteryLevelPoint = devicePoints.FirstOrDefault(x => x.Address == "battery-level");
+        var batterySellLevelPoint = devicePoints.FirstOrDefault(x => x.Address == "battery-sell-level");
         var gridChargeEnablePoint = devicePoints.FirstOrDefault(x => x.Address == "grid-charge-enable");
         var adaptiveSellEnablePoint = devicePoints.FirstOrDefault(x => x.Address == "adaptive-sell-enable");
 
-        if (batteryLevelPoint == null || gridChargeEnablePoint == null || adaptiveSellEnablePoint == null)
+        if (batteryLevelPoint == null || gridChargeEnablePoint == null || adaptiveSellEnablePoint == null || batterySellLevelPoint == null)
             return null;
 
         var devices = await dbContext.Devices.AsNoTracking().Include(x => x.DevicePoints).Where(x => x.Type == "electricity_price" || x.Type == "deye_inverter").ToArrayAsync();
@@ -47,20 +40,22 @@ public class InverterScheduleRunner(
         if (actualBatteryLevelPoint == null)
             return null;
 
-        using var httpClient = httpClientFactory.CreateClient(nameof(InverterScheduleRunner));
-
         var timestampLocal = timestamp.ToLocalTime().AddSeconds(30);
         var date = DateOnly.FromDateTime(timestampLocal);
-        var batteryLevelValues = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(pointValueStoreConnectorBaseUrl, batteryLevelPoint.Id, date, date));
-        var gridChargeEnableValues = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(pointValueStoreConnectorBaseUrl, gridChargeEnablePoint.Id, date, date));
-        var electricityPrices = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(pointValueStoreConnectorBaseUrl, electricityPricePoint.Id, date, date));
-        var actualBatteryLevelValues = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(pointValueStoreConnectorBaseUrl, actualBatteryLevelPoint.Id, date, date));
-        var adaptiveSellEnableValues = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(pointValueStoreConnectorBaseUrl, adaptiveSellEnablePoint.Id, date, date));
+        var batteryLevelValues = await pointValueStoreAdapter.Get(batteryLevelPoint.Id, date);
+        var batterySellLevelValues = await pointValueStoreAdapter.Get(batterySellLevelPoint.Id, date);
+        var gridChargeEnableValues = await pointValueStoreAdapter.Get(gridChargeEnablePoint.Id, date);
+        var electricityPrices = await pointValueStoreAdapter.Get(electricityPricePoint.Id, date);
+        var actualBatteryLevelValues = await pointValueStoreAdapter.Get(actualBatteryLevelPoint.Id, date);
+        var adaptiveSellEnableValues = await pointValueStoreAdapter.Get(adaptiveSellEnablePoint.Id, date);
 
-        if (!ValidateValues(batteryLevelValues, true))
+        var currentActualBatteryLevel = GetCurrentValue(timestampLocal, actualBatteryLevelValues);
+        var currentBatterySellLevel = GetCurrentValue(timestampLocal, batterySellLevelValues);
+
+        if (!ValidateValues(batteryLevelValues))
             return null;
 
-        if (ValidateValues(gridChargeEnableValues, true))
+        if (ValidateValues(gridChargeEnableValues))
         {
             var changePoints = GetChangePoints(batteryLevelValues, gridChargeEnableValues);
             if (changePoints == null)
@@ -72,76 +67,55 @@ public class InverterScheduleRunner(
 
             var schedule = InverterScheduleHelpers.GetCurrentSchedule(changePoints, currentHour);
 
-            var scheduleUpdateUrl = UrlHelpers.GetUrl(inverterConnectorBaseUrl, "schedule", null);
-            var result = await httpClient.PutAsJsonAsync(scheduleUpdateUrl, schedule);
-            if (!result.IsSuccessStatusCode)
+            foreach (var item in schedule.GetItems())
             {
-                Logger.LogError("Schedule update request failed with status {ResponseStatus}", result.StatusCode);
+                item.IsGridSellEnabled = currentActualBatteryLevel > currentBatterySellLevel;
             }
+
+            await solarmanV5Adapter.Client.Schedule.PutAsync(schedule);
 #if !DEBUG
             await Task.Delay(50);
 #endif
         }
 
-
-        if (ValidateValues(electricityPrices))
+        var currentPrice = GetCurrentValue(timestampLocal, electricityPrices);
+        var settings = new InverterSettingsUpdateDto
         {
-            var currentPrice = GetCurrentValue(timestampLocal, electricityPrices);
-            if (currentPrice != null)
-            {
-                var settings = new InverterSettingsUpdateDto
-                {
-                    IsSolarSellEnabled = (decimal)currentPrice.Value > saleMargin
-                };
-                await UpdateInverterSettings(inverterConnectorBaseUrl, httpClient, settings);
+            IsSolarSellEnabled = (decimal)currentPrice > saleMargin
+        };
+        await UpdateInverterSettings(settings);
 #if !DEBUG
-                await Task.Delay(50);
+        await Task.Delay(50);
 #endif
-            }
-        }
 
-
-        if (ValidateValues(actualBatteryLevelValues) && ValidateValues(adaptiveSellEnableValues))
+        var inverterSettings = await dbContext.InverterSettings.AsNoTracking().FirstOrDefaultAsync();
+        if (inverterSettings != null)
         {
-            var inverterSettings = await dbContext.InverterSettings.AsNoTracking().FirstOrDefaultAsync();
-            if (inverterSettings != null)
+            var isAdaptiveSellEnabled = GetCurrentValue(timestampLocal, adaptiveSellEnableValues) > 0.0;
+            var currentBatteryLevel = GetCurrentValue(timestampLocal, batteryLevelValues);
+
+            settings = new InverterSettingsUpdateDto
             {
-                var isAdaptiveSellEnabled = (GetCurrentValue(timestampLocal, adaptiveSellEnableValues) ?? 0.0) > 0.0;
-                var currentActualBatteryLevel = GetCurrentValue(timestampLocal, actualBatteryLevelValues);
-                var currentBatteryLevel = GetCurrentValue(timestampLocal, batteryLevelValues);
-
-                if (currentBatteryLevel != null && currentActualBatteryLevel != null)
-                {
-                    var settings = new InverterSettingsUpdateDto
-                    {
-                        MaxChargeCurrent = isAdaptiveSellEnabled && (currentActualBatteryLevel.Value - currentBatteryLevel.Value >= 5.0) ? 0 : inverterSettings.BatteryChargeCurrent,
-                    };
-                    await UpdateInverterSettings(inverterConnectorBaseUrl, httpClient, settings);
+                MaxChargeCurrent = isAdaptiveSellEnabled && (currentActualBatteryLevel - currentBatteryLevel >= 5.0) ? 0 : inverterSettings.BatteryChargeCurrent,
+            };
+            await UpdateInverterSettings(settings);
 #if !DEBUG
-                    await Task.Delay(50);
+            await Task.Delay(50);
 #endif
-                }
-            }
         }
-
 
         return null;
     }
 
-    private async Task UpdateInverterSettings(string inverterConnectorBaseUrl, HttpClient httpClient, InverterSettingsUpdateDto settings)
+    private async Task UpdateInverterSettings(InverterSettingsUpdateDto settings)
     {
-        var settingsUpdateUrl = UrlHelpers.GetUrl(inverterConnectorBaseUrl, "inverter-settings", null);
-        var result = await httpClient.PutAsJsonAsync(settingsUpdateUrl, settings);
-        if (!result.IsSuccessStatusCode)
-        {
-            Logger.LogError("Settings update request failed with status {ResponseStatus}", result.StatusCode);
-        }
+        await solarmanV5Adapter.Client.InverterSettings.PutAsync(settings);
     }
 
-    private static double? GetCurrentValue(DateTime timestampLocal, ValueContainerDto values)
+    private static double GetCurrentValue(DateTime timestampLocal, ResponseValueContainerDto values)
     {
         double? value = null;
-        for (int i = 0; i < values.Values.Length - 1; i++)
+        for (int i = 0; i < values.Values!.Count - 1; i++)
         {
             var price = values.Values[i];
             var nextPrice = values.Values[i + 1];
@@ -152,14 +126,17 @@ public class InverterScheduleRunner(
             }
         }
 
-        return value;
+        if (value == null)
+            throw new DeviceRunException("Could not find current value for point");
+
+        return value.Value;
     }
 
-    private static bool ValidateValues([NotNullWhen(true)] ValueContainerDto? batteryLevelValues, bool firstMustBeSet = false)
+    private static bool ValidateValues([NotNullWhen(true)] ResponseValueContainerDto? batteryLevelValues)
     {
-        if (batteryLevelValues != null && batteryLevelValues.Values != null && batteryLevelValues.Values.Length == 24 * 6 + 1)
+        if (batteryLevelValues != null && batteryLevelValues.Values != null && batteryLevelValues.Values.Count == 24 * 6 + 1)
         {
-            return !firstMustBeSet || batteryLevelValues.Values[0].Value != null;
+            return batteryLevelValues.Values[0].Value != null;
         }
 
         return false;
@@ -174,13 +151,13 @@ public class InverterScheduleRunner(
         return level;
     }
 
-    private static List<ScheduleItemDto>? GetChangePoints(ValueContainerDto chargeValues, ValueContainerDto gridValues)
+    private static List<ScheduleItemDto>? GetChangePoints(ResponseValueContainerDto chargeValues, ResponseValueContainerDto gridValues)
     {
         var hourlyPoints = new List<ScheduleItemDto>();
         for (int i = 0; i < 24; i++)
         {
-            var chargeValue = chargeValues.Values[i * 6];
-            var gridValue = gridValues.Values[i * 6];
+            var chargeValue = chargeValues.Values![i * 6];
+            var gridValue = gridValues.Values![i * 6];
 
             if (chargeValue.Value.HasValue)
             {
@@ -194,7 +171,7 @@ public class InverterScheduleRunner(
                 hourlyPoints.Add(hourlyPoint);
             }
         }
-        if (hourlyPoints.Count == 0 || hourlyPoints[0].Time.Hour != 0)
+        if (hourlyPoints.Count == 0 || hourlyPoints[0].Time!.Value.Hour != 0)
             return null;
 
         var changePoints = new List<ScheduleItemDto> { hourlyPoints[0] };

@@ -23,6 +23,7 @@
 		<ProjectReference Include="..\MyUplinkConnector\MyUplinkConnector.csproj" />
 		<ProjectReference Include="..\PointValueStoreClient\PointValueStoreClient.csproj" />
 		<ProjectReference Include="..\SharedServices\SharedServices.csproj" />
+		<ProjectReference Include="..\SolarmanV5Client\SolarmanV5Client.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

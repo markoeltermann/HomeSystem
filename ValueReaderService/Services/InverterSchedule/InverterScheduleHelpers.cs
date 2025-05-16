@@ -1,7 +1,9 @@
-﻿namespace ValueReaderService.Services.InverterSchedule;
+﻿using SolarmanV5Client.Models;
+
+namespace ValueReaderService.Services.InverterSchedule;
 public static class InverterScheduleHelpers
 {
-    public static ScheduleDto? GetCurrentSchedule(List<ScheduleItemDto> changePoints, int hour)
+    public static ScheduleDto GetCurrentSchedule(List<ScheduleItemDto> changePoints, int hour)
     {
         ScheduleDto schedule;
 
@@ -29,7 +31,7 @@ public static class InverterScheduleHelpers
             {
                 var c = changePoints[i];
                 var n = changePoints[i + 1];
-                if (n.Time.Hour > hour && c.Time.Hour <= hour)
+                if (n.Time!.Value.Hour > hour && c.Time!.Value.Hour <= hour)
                 {
                     startingPointIndex = i;
                     break;
@@ -60,11 +62,11 @@ public static class InverterScheduleHelpers
                 for (int i = 0; i < 6 - initialCount; i++)
                 {
                     var last = schedulePoints[^1];
-                    if (last.Time.Hour < 23)
+                    if (last.Time!.Value.Hour < 23)
                     {
                         schedulePoints.Add(new ScheduleItemDto
                         {
-                            Time = new TimeOnly(last.Time.Hour + 1, 0),
+                            Time = new TimeOnly(last.Time!.Value.Hour + 1, 0),
                             BatteryChargeLevel = last.BatteryChargeLevel,
                             IsGridChargeEnabled = last.IsGridChargeEnabled,
                             MaxBatteryPower = last.MaxBatteryPower,
@@ -86,11 +88,11 @@ public static class InverterScheduleHelpers
                     {
                         var c = schedulePoints[j];
                         var n = schedulePoints[j + 1];
-                        if (n.Time.Hour - c.Time.Hour > 1)
+                        if (n.Time!.Value.Hour - c.Time!.Value.Hour > 1)
                         {
                             schedulePoints.Insert(j + 1, new ScheduleItemDto
                             {
-                                Time = new TimeOnly(c.Time.Hour + 1, 0),
+                                Time = new TimeOnly(c.Time!.Value.Hour + 1, 0),
                                 BatteryChargeLevel = c.BatteryChargeLevel,
                                 IsGridChargeEnabled = c.IsGridChargeEnabled,
                                 MaxBatteryPower = c.MaxBatteryPower,

@@ -22,6 +22,7 @@ public class InverterScheduleController(HomeSystemContext context, HttpClient ht
         var baseUrl = configuration["PointValueStoreConnectorUrl"];
 
         var batteryLevelValues = await PointValueStoreHelpers.GetPointValues(points, "battery-level", date, httpClient, baseUrl);
+        var batterySellLevelValues = await PointValueStoreHelpers.GetPointValues(points, "battery-sell-level", date, httpClient, baseUrl);
         var gridChargeEnableValues = await PointValueStoreHelpers.GetPointValues(points, "grid-charge-enable", date, httpClient, baseUrl);
         var adaptiveSellEnableValues = await PointValueStoreHelpers.GetPointValues(points, "adaptive-sell-enable", date, httpClient, baseUrl);
 
@@ -34,6 +35,7 @@ public class InverterScheduleController(HomeSystemContext context, HttpClient ht
             {
                 IsGridChargeEnabled = isGridChargeEnabled.HasValue ? isGridChargeEnabled.Value > 0.0 : null,
                 BatteryLevel = (int?)batteryLevelValues.Values.FirstOrDefault(x => x.Timestamp.Hour == i)?.Value,
+                BatterySellLevel = (int?)batterySellLevelValues.Values.FirstOrDefault(x => x.Timestamp.Hour == i)?.Value,
                 IsAdaptiveSellEnabled = isAdaptiveSellEnabled.HasValue ? isAdaptiveSellEnabled.Value > 0.0 : null
             };
             result.Hours[i] = hour;
@@ -54,16 +56,18 @@ public class InverterScheduleController(HomeSystemContext context, HttpClient ht
         }
 
         var batteryLevelPoint = points.FirstOrDefault(x => x.Address == "battery-level");
+        var batterySellLevelPoint = points.FirstOrDefault(x => x.Address == "battery-sell-level");
         var gridChargeEnablePoint = points.FirstOrDefault(x => x.Address == "grid-charge-enable");
         var adaptiveSellEnablePoint = points.FirstOrDefault(x => x.Address == "adaptive-sell-enable");
 
-        if (batteryLevelPoint == null || gridChargeEnablePoint == null || adaptiveSellEnablePoint == null)
+        if (batteryLevelPoint == null || gridChargeEnablePoint == null || adaptiveSellEnablePoint == null || batterySellLevelPoint == null)
         {
             return NotFound("Schedule points have not been configured");
         }
 
         var gridChargeEnableValues = new ValueContainerDto { Values = new NumericValueDto[24 * 6] };
         var batteryLevelValues = new ValueContainerDto { Values = new NumericValueDto[24 * 6] };
+        var batterySellLevelValues = new ValueContainerDto { Values = new NumericValueDto[24 * 6] };
         var adaptiveSellEnableValues = new ValueContainerDto { Values = new NumericValueDto[24 * 6] };
 
         var time0 = date.ToDateTime(new TimeOnly(), DateTimeKind.Local).ToUniversalTime();
@@ -72,12 +76,20 @@ public class InverterScheduleController(HomeSystemContext context, HttpClient ht
         {
             var time = time0.AddHours(i);
             var hourSchedule = daySchedule.Hours[i];
-            if (i != 0 && hourSchedule.BatteryLevel == null)
+            if (i == 0)
+            {
+                hourSchedule.BatterySellLevel ??= 100;
+            }
+            else
             {
                 var prevHourSchedule = daySchedule.Hours[i - 1];
-                hourSchedule.BatteryLevel = prevHourSchedule.BatteryLevel;
-                hourSchedule.IsGridChargeEnabled = prevHourSchedule.IsGridChargeEnabled;
-                hourSchedule.IsAdaptiveSellEnabled = prevHourSchedule.IsAdaptiveSellEnabled;
+                hourSchedule.BatterySellLevel ??= prevHourSchedule.BatterySellLevel;
+                if (hourSchedule.BatteryLevel == null)
+                {
+                    hourSchedule.BatteryLevel = prevHourSchedule.BatteryLevel;
+                    hourSchedule.IsGridChargeEnabled = prevHourSchedule.IsGridChargeEnabled;
+                    hourSchedule.IsAdaptiveSellEnabled = prevHourSchedule.IsAdaptiveSellEnabled;
+                }
             }
 
             double? batteryLevel = hourSchedule.BatteryLevel;
@@ -88,12 +100,23 @@ public class InverterScheduleController(HomeSystemContext context, HttpClient ht
                 else if (batteryLevel > 100)
                     batteryLevel = 100;
             }
+
+            double? batterySellLevel = hourSchedule.BatterySellLevel;
+            if (batterySellLevel.HasValue)
+            {
+                if (batterySellLevel < 0)
+                    batterySellLevel = 0;
+                else if (batterySellLevel > 100)
+                    batterySellLevel = 100;
+            }
+
             double? gridChargeEnable = batteryLevel.HasValue
                 ? ((hourSchedule.IsGridChargeEnabled ?? false) ? 1.0 : 0.0)
                 : null;
 
             PointValueStoreHelpers.FillHour(gridChargeEnableValues, i, time, gridChargeEnable);
             PointValueStoreHelpers.FillHour(batteryLevelValues, i, time, batteryLevel);
+            PointValueStoreHelpers.FillHour(batterySellLevelValues, i, time, batterySellLevel);
 
             double? adaptiveChargeEnable = batteryLevel.HasValue
                 ? ((hourSchedule.IsAdaptiveSellEnabled ?? false) ? 1.0 : 0.0)
@@ -106,6 +129,7 @@ public class InverterScheduleController(HomeSystemContext context, HttpClient ht
 
         await PointValueStoreHelpers.UpdatePoints(gridChargeEnablePoint, gridChargeEnableValues, baseUrl, httpClient);
         await PointValueStoreHelpers.UpdatePoints(batteryLevelPoint, batteryLevelValues, baseUrl, httpClient);
+        await PointValueStoreHelpers.UpdatePoints(batterySellLevelPoint, batterySellLevelValues, baseUrl, httpClient);
         await PointValueStoreHelpers.UpdatePoints(adaptiveSellEnablePoint, adaptiveSellEnableValues, baseUrl, httpClient);
 
         return Ok();

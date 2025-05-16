@@ -1,0 +1,283 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "SolarmanV5Connector",
+    "version": "1.0"
+  },
+  "paths": {
+    "/values": {
+      "get": {
+        "tags": [
+          "SolarmanV5Connector"
+        ],
+        "parameters": [
+          {
+            "name": "a",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PointValueDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/values/{address}": {
+      "put": {
+        "tags": [
+          "SolarmanV5Connector"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "value",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/schedule": {
+      "get": {
+        "tags": [
+          "SolarmanV5Connector"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "SolarmanV5Connector"
+        ],
+        "operationId": "UpdateSchedule",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inverter-settings": {
+      "get": {
+        "tags": [
+          "SolarmanV5Connector"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InverterSettingsDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "SolarmanV5Connector"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InverterSettingsUpdateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InverterSettingsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "InverterSettingsDto": {
+        "type": "object",
+        "properties": {
+          "isSolarSellEnabled": {
+            "type": "boolean"
+          },
+          "maxChargeCurrent": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxDischargeCurrent": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "InverterSettingsUpdateDto": {
+        "type": "object",
+        "properties": {
+          "isSolarSellEnabled": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "maxChargeCurrent": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "maxDischargeCurrent": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PointValueDto": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "value": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ScheduleDto": {
+        "type": "object",
+        "properties": {
+          "schedulePoint1": {
+            "$ref": "#/components/schemas/ScheduleItemDto"
+          },
+          "schedulePoint2": {
+            "$ref": "#/components/schemas/ScheduleItemDto"
+          },
+          "schedulePoint3": {
+            "$ref": "#/components/schemas/ScheduleItemDto"
+          },
+          "schedulePoint4": {
+            "$ref": "#/components/schemas/ScheduleItemDto"
+          },
+          "schedulePoint5": {
+            "$ref": "#/components/schemas/ScheduleItemDto"
+          },
+          "schedulePoint6": {
+            "$ref": "#/components/schemas/ScheduleItemDto"
+          },
+          "isSolarSellEnabled": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ScheduleItemDto": {
+        "type": "object",
+        "properties": {
+          "time": {
+            "type": "string",
+            "format": "time"
+          },
+          "isGridChargeEnabled": {
+            "type": "boolean"
+          },
+          "isGridSellEnabled": {
+            "type": "boolean"
+          },
+          "maxBatteryPower": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "batteryChargeLevel": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}
