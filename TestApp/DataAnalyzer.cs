@@ -7,8 +7,8 @@ public class DataAnalyzer
     {
         using var httpClient = new HttpClient();
 
-        var valueContainer1 = await httpClient.GetFromJsonAsync<ValueContainerDto>("http://sinilille:5002/api/devicePoints/138/values?from=2025-01-20&upTo=2025-01-21");
-        var valueContainer2 = await httpClient.GetFromJsonAsync<ValueContainerDto>("http://sinilille:5002/api/devicePoints/139/values?from=2025-01-20&upTo=2025-01-21");
+        var valueContainer1 = await httpClient.GetFromJsonAsync<TestValueContainerDto>("http://sinilille:5002/api/devicePoints/138/values?from=2025-01-20&upTo=2025-01-21");
+        var valueContainer2 = await httpClient.GetFromJsonAsync<TestValueContainerDto>("http://sinilille:5002/api/devicePoints/139/values?from=2025-01-20&upTo=2025-01-21");
 
         if (valueContainer1 == null || valueContainer2 == null)
             return;
@@ -18,7 +18,7 @@ public class DataAnalyzer
         Console.WriteLine(integral);
     }
 
-    private static double Integrate(ValueContainerDto valueContainer)
+    private static double Integrate(TestValueContainerDto valueContainer)
     {
         var integral = 0.0;
         //foreach (var value in valueContainer.Values)

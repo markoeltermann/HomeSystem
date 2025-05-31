@@ -18,10 +18,13 @@ public class PointValueStoreAdapter
         pointValueStore = PointValueStoreClientFactory.Create(httpClient);
     }
 
-    public async Task<ResponseValueContainerDto> Get(int pointId, DateOnly date)
+    public PointValueStore Client => pointValueStore;
+
+    public async Task<ResponseValueContainerDto> Get(int pointId, DateOnly date, DateOnly? dateUpTo = null)
     {
-        var result = await pointValueStore.Points[pointId].Values.GetAsync(x => { x.QueryParameters.From = date; x.QueryParameters.UpTo = date; });
-        if (result?.Values == null || result.Values.Count != 24 * 6 + 1)
+        var result = await pointValueStore.Points[pointId].Values.GetAsync(x => { x.QueryParameters.From = date; x.QueryParameters.UpTo = dateUpTo ?? date; });
+        var dayCount = dateUpTo == null ? 1 : dateUpTo.Value.DayNumber - date.DayNumber + 1;
+        if (result?.Values == null || result.Values.Count != 24 * 6 * dayCount + 1)
             throw new InvalidOperationException("Point value store did not return expected response.");
 
         return result;
@@ -53,7 +56,7 @@ public class PointValueStoreAdapter
         {
             Values = [.. values.Select(x => new NumericValueDto
             {
-                Timestamp = x.TimeStamp ?? defaultTimestamp,
+                Timestamp = x.Timestamp ?? defaultTimestamp,
                 StringValue = x.Value,
             })]
         };

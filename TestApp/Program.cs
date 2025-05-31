@@ -1,20 +1,51 @@
 ﻿using Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using MyUplinkConnector;
+using TestApp;
+using ValueReaderService.Services;
 
-var builder = new ConfigurationBuilder()
-            .SetBasePath(Path.GetDirectoryName(typeof(Program).Assembly.Location))
-            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+//var builder = new ConfigurationBuilder()
+//            .SetBasePath(Path.GetDirectoryName(typeof(Program).Assembly.Location))
+//            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
 
-var configuration = builder.Build();
+//var configuration = builder.Build();
 
-//configuration.GetConnectionString("HomeSystemContext")
+////configuration.GetConnectionString("HomeSystemContext")
 
-var optionsBuilder = new DbContextOptionsBuilder<HomeSystemContext>()
-    .UseNpgsql(configuration.GetConnectionString("HomeSystemContext"));
+//var optionsBuilder = new DbContextOptionsBuilder<HomeSystemContext>()
+//    .UseNpgsql(configuration.GetConnectionString("HomeSystemContext"));
 
-var dbContext = new HomeSystemContext(optionsBuilder.Options);
+//var dbContext = new HomeSystemContext(optionsBuilder.Options);
+
+IHost host = Host.CreateDefaultBuilder(args)
+    .ConfigureServices((context, services) =>
+    {
+        services.AddLogging(loggingBuilder =>
+        {
+            // configure Logging with NLog
+            loggingBuilder.ClearProviders();
+            loggingBuilder.SetMinimumLevel(LogLevel.Information);
+        });
+
+        services.AddDbContext<HomeSystemContext>(options =>
+            options.UseNpgsql(context.Configuration.GetConnectionString("HomeSystemContext")));
+
+        services.AddHostedService<SolarModelPOC>();
+        services.AddScoped<PointValueStoreAdapter>();
+        services.AddSingleton<ConfigModel>();
+
+        services.AddHttpClient();
+    })
+    .Build();
+
+await host.RunAsync();
+
+//await SolarModelPOC.Run(dbContext);
+//return;
 
 //await ModbusRegisterProcessor.Run(dbContext);
 //await DataAnalyzer.Run();
@@ -23,8 +54,6 @@ var dbContext = new HomeSystemContext(optionsBuilder.Options);
 
 //await YrNoModelConverter.Run(dbContext);
 //return;
-
-
 
 //var bacnetClient = new BacnetClient(new BacnetIpUdpProtocolTransport(0xBAC0));
 
@@ -450,7 +479,6 @@ static int GetHexVal(char hex)
 
 //Console.ReadLine();
 
-
 using var httpClient = new HttpClient();
 
 //var content = new FormUrlEncodedContent([
@@ -461,8 +489,6 @@ using var httpClient = new HttpClient();
 //    new KeyValuePair<string, string>("scope", "READSYSTEM WRITESYSTEM"),
 //    new KeyValuePair<string, string>("redirect_uri", "https://test.com"),
 //    ]);
-
-
 
 //var response = await httpClient.PostAsync("https://api.myuplink.com/oauth/token", content);
 
@@ -567,7 +593,6 @@ Console.ReadLine();
 //dbContext.SaveChanges();
 
 Console.ReadLine();
-
 
 //Console.WriteLine(responseText);
 

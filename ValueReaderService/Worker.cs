@@ -138,6 +138,8 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
             {
                 var reader = scope.ServiceProvider.GetRequiredService<TReader>();
                 var pointValues = await reader.ExecuteAsync(device, wakeTime, device.DevicePoints);
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Worker>>();
+                logger.LogInformation("Read completed for device {DeviceId}, it returned {NumberOfPointValues} point values.", device.Id, pointValues?.Count.ToString() ?? "null");
                 if (pointValues is not null)
                 {
                     if (!reader.StorePointsWithReplace)
@@ -302,7 +304,7 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
         else if (deviceType == "solar_model")
         {
             var d = new DateTime(now.Year, now.Month, now.Day, 12, 0, 0, DateTimeKind.Utc);
-            if (d - now < TimeSpan.FromMinutes(5))
+            if (d - now < TimeSpan.Zero)
             {
                 d = d.AddDays(1);
             }

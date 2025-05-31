@@ -216,7 +216,7 @@ public class ConsumptionAnalyser
         return newCharges;
     }
 
-    private static double GetCost(NumericValueDto[] chargeValues, NumericValueDto[] npsPriceValues, NumericValue[] loadPowerValues, NumericValue[] solarPowerValues, (double, double)[] charges, int hourDelta)
+    private static double GetCost(TestNumericValueDto[] chargeValues, TestNumericValueDto[] npsPriceValues, NumericValue[] loadPowerValues, NumericValue[] solarPowerValues, (double, double)[] charges, int hourDelta)
     {
         var cost = 0.0;
         int j = 0;
@@ -253,22 +253,22 @@ public class ConsumptionAnalyser
         return charge / 0.95 + loadPowerValues[i].Value + 0.16 - Math.Max(solarPowerValues[i].Value - 0.1, 0) * 0.85;
     }
 
-    private static NumericValueDto[] GetHourlyDeltas(NumericValueDto[] values)
+    private static TestNumericValueDto[] GetHourlyDeltas(TestNumericValueDto[] values)
     {
-        var result = new List<NumericValueDto>();
+        var result = new List<TestNumericValueDto>();
         for (int i = 0; i < values.Length - 6; i += 6)
         {
             var v1 = values[i];
             var v2 = values[i + 6];
             var timestamp = v1.Timestamp;
-            result.Add(new NumericValueDto { Timestamp = timestamp, Value = v2.Value - v1.Value });
+            result.Add(new TestNumericValueDto { Timestamp = timestamp, Value = v2.Value - v1.Value });
         }
         return [.. result];
     }
 
-    private static NumericValueDto[] GetHourlyValues(NumericValueDto[] values)
+    private static TestNumericValueDto[] GetHourlyValues(TestNumericValueDto[] values)
     {
-        var result = new NumericValueDto[values.Length / 6];
+        var result = new TestNumericValueDto[values.Length / 6];
         for (int i = 0; i < result.Length; i++)
         {
             result[i] = values[i * 6];
@@ -276,7 +276,7 @@ public class ConsumptionAnalyser
         return result;
     }
 
-    private static NumericValue[] GetHourlyConsumptionFromPower(NumericValueDto[] values)
+    private static NumericValue[] GetHourlyConsumptionFromPower(TestNumericValueDto[] values)
     {
         var result = new NumericValue[values.Length / 6];
         for (int i = 0; i < result.Length; i++)
@@ -296,9 +296,9 @@ public class ConsumptionAnalyser
         return result;
     }
 
-    private async Task<ValueContainerDto> GetValues(int pointId)
+    private async Task<TestValueContainerDto> GetValues(int pointId)
     {
-        var result = await httpClient.GetFromJsonAsync<ValueContainerDto>($"http://sinilille:5002/api/devicePoints/{pointId}/values?from=2025-01-24&upTo=2025-01-26");
+        var result = await httpClient.GetFromJsonAsync<TestValueContainerDto>($"http://sinilille:5002/api/devicePoints/{pointId}/values?from=2025-01-24&upTo=2025-01-26");
         return result ?? throw new Exception();
     }
 
