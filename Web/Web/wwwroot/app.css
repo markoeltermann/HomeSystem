@@ -70,15 +70,26 @@ h1:focus {
     width: 150px;
 }
 
-.chart-button-wide {
-    width: 125px;
+
+
+@media (min-width: 576px) {
+    .chart-button-narrow {
+        width: 32px;
+        max-width: 32px;
+        padding-left: 0.4rem;
+        padding-right: 0.4rem;
+    }
+
+    .chart-button-wide {
+        width: 125px;
+    }
 }
 
-.chart-button-narrow {
-    width: 32px;
-    max-width: 32px;
-    padding-left: 0.4rem;
-    padding-right: 0.4rem;
+@media (max-width: 575px) {
+    .chart-button-narrow {
+        width: 25px;
+        max-width: 25px;
+    }
 }
 
 .loading-bar {
@@ -87,4 +98,14 @@ h1:focus {
 
 .hoverable:hover {
     background-color: #00000033;
+}
+
+.apexcharts-legend-text {
+    font-family: inherit !important;
+    font-size: inherit !important;
+}
+
+.small-chart {
+    margin-left: calc(var(--bs-gutter-x) * -.5);
+    margin-right: calc(var(--bs-gutter-x) * -.5);
 }

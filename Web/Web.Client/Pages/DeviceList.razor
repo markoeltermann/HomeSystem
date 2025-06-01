@@ -1,0 +1,37 @@
+@using System.Globalization
+@using Web.Client.DTOs
+
+<div class="overflow-y-auto">
+    @if (Devices != null)
+    {
+        foreach (var item in Devices)
+        {
+            if (item.Points != null)
+            {
+                <span>@item.Name</span>
+                @foreach (var point in item.Points)
+                {
+                    <div class="form-check ms-3">
+                        <InputCheckbox class="form-check-input" id="@("point" + point.Id)" @bind-Value=point.IsSelected @bind-Value:after="OnSelectedValuesUpdated" />
+                        <label class="form-check-label" for="@("point" + point.Id)">
+                            @(point.DataTypeName![0..1] + " " + point.Name + (point.Unit != null ? $" ({point.Unit})" : null))
+                        </label>
+                    </div>
+                }
+            }
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public DeviceDto[]? Devices { get; set; }
+
+    [Parameter]
+    public EventCallback SelectedValuesUpdated { get; set; }
+
+    private async Task OnSelectedValuesUpdated()
+    {
+        await SelectedValuesUpdated.InvokeAsync(null);
+    }
+}
