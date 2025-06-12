@@ -10,71 +10,78 @@
 
 <PageTitle>Inverter schedule</PageTitle>
 
-<div class="container-md mb-4">
+<div class="container-md">
     <div class="row justify-content-center">
-        <div class="col col-md-6 d-flex justify-content-end">
-            <NavLink href="@GetHeatPumpScheduleUrl()">
-                <span>Heat pump schedule</span>
-            </NavLink>
+        <div class="col col-md-6">
+            <div class="row justify-content-center">
+                <div class="col d-flex justify-content-between">
+                    <h3>Inverter schedule</h3>
+                    <NavLink href="@GetHeatPumpScheduleUrl()" class="mt-1">
+                        <span>Heat pump schedule</span>
+                    </NavLink>
+                </div>
+            </div>
+
+            <form @onsubmit="OnSaveClick">
+                <div class="row justify-content-center">
+                    <div class="col">
+                        <div class="input-group mb-3">
+                            <span class="input-group-text">Date</span>
+                            <InputDate TValue="DateTime" @bind-Value=SelectedDate @bind-Value:after="DateFromUpdated" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-1 hoverable align-items-center justify-content-center">
+                    <div class="col-4">
+                        <span>Hour</span>
+                    </div>
+                    <div class="col-2">
+                        <span>Grid charge</span>
+                    </div>
+                    <div class="col-2">
+                        <span>Adaptive sell</span>
+                    </div>
+                    <div class="col-2">
+                        <span>Battery level</span>
+                    </div>
+                    <div class="col-2">
+                        <span>Battery sell level</span>
+                    </div>
+                </div>
+
+                @foreach (var hour in Hours)
+                {
+                    <div class="row mb-1 hoverable align-items-center justify-content-center">
+                        <div class="col-4">
+                            <span>@($"{hour.Hour.ToString().PadLeft(2, '0')}:00")</span>
+                        </div>
+                        <div class="col-2 d-flex justify-content-center">
+                            <InputCheckbox @bind-Value=hour.IsGridChargeEnabled class="form-check-input" />
+                        </div>
+                        <div class="col-2 d-flex justify-content-center">
+                            <InputCheckbox @bind-Value=hour.IsAdaptiveSellEnabled class="form-check-input" />
+                        </div>
+                        <div class="col-2">
+                            <InputNumber @bind-Value=hour.BatteryLevel class="form-control" />
+                        </div>
+                        <div class="col-2">
+                            <InputNumber @bind-Value=hour.BatterySellLevel class="form-control" />
+                        </div>
+                    </div>
+                }
+
+                <div class="row justify-content-center">
+                    <div class="col d-flex justify-content-end mt-4">
+                        <button type="submit" class="btn chart-button-wide btn-primary">Save</button>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-<form class="container-md" @onsubmit="OnSaveClick">
-    <div class="row justify-content-center">
-        <div class="col col-md-6">
-            <div class="input-group mb-3">
-                <span class="input-group-text">Date</span>
-                <InputDate TValue="DateTime" @bind-Value=SelectedDate @bind-Value:after="DateFromUpdated" class="form-control" />
-            </div>
-        </div>
-    </div>
 
-    <div class="row mb-1 hoverable align-items-center justify-content-center">
-        <div class="col-md-2 col-4">
-            <span>Hour</span>
-        </div>
-        <div class="col-md-1 col-2">
-            <span>Grid charge</span>
-        </div>
-        <div class="col-md-1 col-2">
-            <span>Adaptive sell</span>
-        </div>
-        <div class="col-md-1 col-2">
-            <span>Battery level</span>
-        </div>
-        <div class="col-md-1 col-2">
-            <span>Battery sell level</span>
-        </div>
-    </div>
-
-    @foreach (var hour in Hours)
-    {
-        <div class="row mb-1 hoverable align-items-center justify-content-center">
-            <div class="col-md-2 col-4">
-                <span>@($"{hour.Hour.ToString().PadLeft(2, '0')}:00")</span>
-            </div>
-            <div class="col-md-1 col-2 d-flex justify-content-center">
-                <InputCheckbox @bind-Value=hour.IsGridChargeEnabled class="form-check-input" />
-            </div>
-            <div class="col-md-1 col-2 d-flex justify-content-center">
-                <InputCheckbox @bind-Value=hour.IsAdaptiveSellEnabled class="form-check-input" />
-            </div>
-            <div class="col-md-1 col-2">
-                <InputNumber @bind-Value=hour.BatteryLevel class="form-control" />
-            </div>
-            <div class="col-md-1 col-2">
-                <InputNumber @bind-Value=hour.BatterySellLevel class="form-control" />
-            </div>
-        </div>
-    }
-
-    <div class="row justify-content-center">
-        <div class="col col-md-6 d-flex justify-content-end mt-4">
-            <button type="submit" class="btn chart-button-wide btn-primary">Save</button>
-        </div>
-    </div>
-</form>
 
 @code {
 

@@ -10,59 +10,65 @@
 
 <PageTitle>Heat pump schedule</PageTitle>
 
-<div class="container-md mb-4">
+<div class="container-md">
     <div class="row justify-content-center">
-        <dic class="col col-md-6 d-flex justify-content-end">
-            <NavLink href="@GetInverterScheduleUrl()">
-                <span>Inverter schedule</span>
-            </NavLink>
-        </dic>
+        <div class="col col-md-6">
+            <div class="row justify-content-center">
+                <dic class="col d-flex justify-content-between">
+                    <h3>Heat pump schedule</h3>
+                    <NavLink href="@GetInverterScheduleUrl()" class="mt-1">
+                        <span>Inverter schedule</span>
+                    </NavLink>
+                </dic>
+            </div>
+
+            <form @onsubmit="OnSaveClick">
+                <div class="row justify-content-center">
+                    <dic class="col">
+                        <div class="input-group mb-3">
+                            <span class="input-group-text">Date</span>
+                            <InputDate TValue="DateTime" @bind-Value=SelectedDate @bind-Value:after="DateFromUpdated" class="form-control" />
+                        </div>
+                    </dic>
+                </div>
+
+                <div class="row mb-1 hoverable align-items-center justify-content-center">
+                    <div class="col-4">
+                        <span>Hour</span>
+                    </div>
+                    <div class="col-4">
+                        <span>Heating offset</span>
+                    </div>
+                    <div class="col-4">
+                        <span>Hot water mode</span>
+                    </div>
+                </div>
+
+                @foreach (var hour in Hours)
+                {
+                    <div class="row mb-1 hoverable align-items-center justify-content-center">
+                        <div class="col-4">
+                            <span>@($"{hour.Hour.ToString().PadLeft(2, '0')}:00")</span>
+                        </div>
+                        <div class="col-4">
+                            <InputNumber @bind-Value=hour.HeatingOffset class="form-control" />
+                        </div>
+                        <div class="col-4">
+                            <InputNumber @bind-Value=hour.HotWaterMode class="form-control" />
+                        </div>
+                    </div>
+                }
+
+                <div class="row justify-content-center">
+                    <dic class="col d-flex justify-content-end mt-4">
+                        <button type="submit" class="btn chart-button-wide btn-primary">Save</button>
+                    </dic>
+                </div>
+            </form>
+
+        </div>
     </div>
 </div>
-
-<form class="container-md" @onsubmit="OnSaveClick">
-    <div class="row justify-content-center">
-        <dic class="col col-md-6">
-            <div class="input-group mb-3">
-                <span class="input-group-text">Date</span>
-                <InputDate TValue="DateTime" @bind-Value=SelectedDate @bind-Value:after="DateFromUpdated" class="form-control" />
-            </div>
-        </dic>
-    </div>
-
-    <div class="row mb-1 hoverable align-items-center justify-content-center">
-        <div class="col-md-2 col-3">
-            <span>Hour</span>
-        </div>
-        <div class="col-md-2 col-3">
-            <span>Heating offset</span>
-        </div>
-        <div class="col-md-2 col-3">
-            <span>Hot water mode</span>
-        </div>
-    </div>
-
-    @foreach (var hour in Hours)
-    {
-        <div class="row mb-1 hoverable align-items-center justify-content-center">
-            <div class="col-md-2 col-3">
-                <span>@($"{hour.Hour.ToString().PadLeft(2, '0')}:00")</span>
-            </div>
-            <div class="col-md-2 col-3">
-                <InputNumber @bind-Value=hour.HeatingOffset class="form-control" />
-            </div>
-            <div class="col-md-2 col-3">
-                <InputNumber @bind-Value=hour.HotWaterMode class="form-control" />
-            </div>
-        </div>
-    }
-
-    <div class="row justify-content-center">
-        <dic class="col col-md-6 d-flex justify-content-end mt-4">
-            <button type="submit" class="btn chart-button-wide btn-primary">Save</button>
-        </dic>
-    </div>
-</form>
 
 @code {
 
@@ -92,11 +98,11 @@
             {
                 var hourDto = schedule.Hours[i];
                 hours[i] = new HourModel
-                    {
-                        Hour = i,
-                        HeatingOffset = hourDto.HeatingOffset,
-                        HotWaterMode = hourDto.HotWaterMode,
-                    };
+                {
+                    Hour = i,
+                    HeatingOffset = hourDto.HeatingOffset,
+                    HotWaterMode = hourDto.HotWaterMode,
+                };
             }
 
             Hours = hours;
@@ -110,11 +116,11 @@
         {
             var hour = Hours[i];
             scheduleDto.Hours[i] = new HeatPumpHourlyScheduleDto
-                {
-                    Hour = i,
-                    HeatingOffset = hour.HeatingOffset,
-                    HotWaterMode = hour.HotWaterMode,
-                };
+            {
+                Hour = i,
+                HeatingOffset = hour.HeatingOffset,
+                HotWaterMode = hour.HotWaterMode,
+            };
         }
 
         var result = await http.PutAsJsonAsync($"api/heatPumpSchedule/{SelectedDate:yyyy-MM-dd}", scheduleDto);
@@ -137,9 +143,9 @@
         for (int i = 0; i < 24; i++)
         {
             hours[i] = new HourModel
-                {
-                    Hour = i,
-                };
+            {
+                Hour = i,
+            };
         }
         Hours = hours;
 
