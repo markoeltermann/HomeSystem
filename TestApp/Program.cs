@@ -34,7 +34,8 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddDbContext<HomeSystemContext>(options =>
             options.UseNpgsql(context.Configuration.GetConnectionString("HomeSystemContext")));
 
-        services.AddHostedService<SolarModelPOC>();
+        //services.AddHostedService<SolarModelPOC>();
+        services.AddHostedService<MyUplinkEnumValueMigrator>();
         services.AddScoped<PointValueStoreAdapter>();
         services.AddSingleton<ConfigModel>();
 

@@ -18,21 +18,46 @@ public class PointsController(HomeSystemContext context, PointValueStore pointVa
         var devicePoint = await context.DevicePoints
             .Include(x => x.DataType)
             .Include(x => x.Unit)
+            .Include(x => x.EnumMembers)
             .FirstOrDefaultAsync(x => x.Id == pointId);
         if (devicePoint == null)
             return NotFound();
-        if (devicePoint.DataType.Name is not "Float" and not "Integer" and not "Boolean")
-            return BadRequest("This point is not numeric");
+
+        var enumMembers = devicePoint.DataType.Name == "Enum"
+            ? devicePoint.EnumMembers.OrderBy(x => x.Value).ToArray()
+            : null;
 
         return new ResponseValueContainerDto
         {
-            Values = pointValueStore.ReadNumericValues(devicePoint.DeviceId, devicePoint.Id, from, upTo).Select(x => new NumericValueDto
+            Values = pointValueStore.ReadNumericValues(devicePoint.DeviceId, devicePoint.Id, from, upTo).Select(x =>
             {
-                Timestamp = x.Item1,
-                Value = x.Item2
+                var value = x.Item2;
+                if (devicePoint.DataType.Name == "Enum")
+                {
+                    value = GetEnumValue(enumMembers!, value);
+                }
+                return new NumericValueDto
+                {
+                    Timestamp = x.Item1,
+                    Value = value,
+                };
             }).ToArray(),
             Unit = devicePoint.DataType.Name is "Boolean" ? "bool" : devicePoint.Unit?.Name ?? "unk"
         };
+    }
+
+    private static double? GetEnumValue(EnumMember[] enumMembers, double? value)
+    {
+        for (int i = 0; i < enumMembers.Length; i++)
+        {
+            var enumMember = enumMembers[i];
+            if (enumMember.Value == value)
+            {
+                return i;
+            }
+        }
+
+        return null;
     }
 
     [HttpPut("{pointId}/values")]
