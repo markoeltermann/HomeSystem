@@ -32,32 +32,34 @@ public class PointsController(HomeSystemContext context, PointValueStore pointVa
             Values = pointValueStore.ReadNumericValues(devicePoint.DeviceId, devicePoint.Id, from, upTo).Select(x =>
             {
                 var value = x.Item2;
+                string? stringValue = null;
                 if (devicePoint.DataType.Name == "Enum")
                 {
-                    value = GetEnumValue(enumMembers!, value);
+                    (value, stringValue) = GetEnumValue(enumMembers!, value);
                 }
                 return new NumericValueDto
                 {
                     Timestamp = x.Item1,
                     Value = value,
+                    StringValue = stringValue,
                 };
             }).ToArray(),
             Unit = devicePoint.DataType.Name is "Boolean" ? "bool" : devicePoint.Unit?.Name ?? "unk"
         };
     }
 
-    private static double? GetEnumValue(EnumMember[] enumMembers, double? value)
+    private static (double?, string?) GetEnumValue(EnumMember[] enumMembers, double? value)
     {
         for (int i = 0; i < enumMembers.Length; i++)
         {
             var enumMember = enumMembers[i];
             if (enumMember.Value == value)
             {
-                return i;
+                return (i, enumMember.Name);
             }
         }
 
-        return null;
+        return (null, null);
     }
 
     [HttpPut("{pointId}/values")]
