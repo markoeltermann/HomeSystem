@@ -165,7 +165,6 @@ public class PointValueStore(ILogger<PointValueStore> logger)
 
         var d = new DateTime(fromD.Year, fromD.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
-
         lock (SyncRoot)
         {
             while (d <= upToD)
@@ -185,13 +184,17 @@ public class PointValueStore(ILogger<PointValueStore> logger)
                             var timestamp = d.AddDays(-1) + delta;
                             if (timestamp >= fromD && timestamp <= upToD)
                             {
-                                if (double.TryParse(rawValue, out var value))
+                                var key = utc ? timestamp : timestamp.ToLocalTime();
+                                if (result.ContainsKey(key))
                                 {
-                                    result[utc ? timestamp : timestamp.ToLocalTime()] = value;
-                                }
-                                else if (bool.TryParse(rawValue, out var b))
-                                {
-                                    result[utc ? timestamp : timestamp.ToLocalTime()] = b ? 1 : 0;
+                                    if (double.TryParse(rawValue, out var value))
+                                    {
+                                        result[key] = value;
+                                    }
+                                    else if (bool.TryParse(rawValue, out var b))
+                                    {
+                                        result[key] = b ? 1 : 0;
+                                    }
                                 }
                             }
                         }

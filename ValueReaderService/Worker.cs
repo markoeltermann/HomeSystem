@@ -315,11 +315,17 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
         {
             return now.Minute switch
             {
+                < 5 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 5, 0, DateTimeKind.Utc),
                 < 10 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 10, 0, DateTimeKind.Utc),
+                < 15 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 15, 0, DateTimeKind.Utc),
                 < 20 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 20, 0, DateTimeKind.Utc),
+                < 25 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 25, 0, DateTimeKind.Utc),
                 < 30 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 30, 0, DateTimeKind.Utc),
+                < 35 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 35, 0, DateTimeKind.Utc),
                 < 40 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 40, 0, DateTimeKind.Utc),
+                < 45 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 45, 0, DateTimeKind.Utc),
                 < 50 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 50, 0, DateTimeKind.Utc),
+                < 55 => new DateTime(now.Year, now.Month, now.Day, now.Hour, 55, 0, DateTimeKind.Utc),
                 _ => new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc).AddHours(1)
             };
         }
