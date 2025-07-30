@@ -20,11 +20,17 @@ public class PointValueStoreAdapter
 
     public PointValueStore Client => pointValueStore;
 
-    public async Task<ResponseValueContainerDto> Get(int pointId, DateOnly date, DateOnly? dateUpTo = null)
+    public async Task<ResponseValueContainerDto> Get(int pointId, DateOnly date, DateOnly? dateUpTo = null, bool fiveMinResolution = false)
     {
-        var result = await pointValueStore.Points[pointId].Values.GetAsync(x => { x.QueryParameters.From = date; x.QueryParameters.UpTo = dateUpTo ?? date; });
+        var result = await pointValueStore.Points[pointId].Values.GetAsync(x =>
+        {
+            x.QueryParameters.From = date;
+            x.QueryParameters.UpTo = dateUpTo ?? date;
+            x.QueryParameters.Resolution = fiveMinResolution ? 5 : 10;
+        });
         var dayCount = dateUpTo == null ? 1 : dateUpTo.Value.DayNumber - date.DayNumber + 1;
-        if (result?.Values == null || result.Values.Count != 24 * 6 * dayCount + 1)
+        var valuesPerHour = fiveMinResolution ? 12 : 6;
+        if (result?.Values == null || result.Values.Count != 24 * valuesPerHour * dayCount + 1)
             throw new InvalidOperationException("Point value store did not return expected response.");
 
         return result;

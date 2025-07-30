@@ -35,6 +35,14 @@
               "type": "string",
               "format": "date"
             }
+          },
+          {
+            "name": "resolution",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
           }
         ],
         "responses": {

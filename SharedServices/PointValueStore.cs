@@ -148,7 +148,7 @@ public class PointValueStore(ILogger<PointValueStore> logger)
         return (location, path);
     }
 
-    public List<(DateTime, double?)> ReadNumericValues(int deviceId, int devicePointId, DateOnly from, DateOnly upTo, bool utc = false)
+    public List<(DateTime, double?)> ReadNumericValues(int deviceId, int devicePointId, DateOnly from, DateOnly upTo, bool utc = false, int? resolution = null)
     {
         var result = new SortedDictionary<DateTime, double?>();
 
@@ -160,7 +160,7 @@ public class PointValueStore(ILogger<PointValueStore> logger)
         while (t <= upToDLocal)
         {
             result[t] = null;
-            t = t.AddMinutes(10);
+            t = t.AddMinutes(resolution == 5 ? 5 : 10);
         }
 
         var d = new DateTime(fromD.Year, fromD.Month, 1, 0, 0, 0, DateTimeKind.Utc);

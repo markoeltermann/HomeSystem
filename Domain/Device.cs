@@ -15,5 +15,7 @@ public partial class Device
 
     public string Type { get; set; } = null!;
 
+    public string? SubType { get; set; }
+
     public virtual ICollection<DevicePoint> DevicePoints { get; set; } = new List<DevicePoint>();
 }

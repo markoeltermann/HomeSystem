@@ -1,9 +1,10 @@
 {
-  "descriptionHash": "72179086479B3D775F7D66F80E33B5334BB93BB17ADD2C50732FBDA9AFD8B3DEFFCD5013E31388B3C07DEC767B6F28F63EFABFE5290C6A99D7E75775E2823B58",
+  "descriptionHash": "45093BA87D3090FC82C00E88E12ACE83F8B27290E630737ECFEBFBDE29A9D8CB2E4FEEBF8E28D935177E35417DB84BAFB1006F62E10D86A6153D02491AAF4DE2",
   "descriptionLocation": "../swagger.json",
   "lockFileVersion": "1.0.0",
-  "kiotaVersion": "1.16.0",
+  "kiotaVersion": "1.26.0",
   "clientClassName": "PointValueStore",
+  "typeAccessModifier": "Public",
   "clientNamespaceName": "PointValueStoreClient",
   "language": "CSharp",
   "usesBackingStore": false,
