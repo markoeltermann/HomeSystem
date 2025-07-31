@@ -75,6 +75,7 @@ public partial class HomeSystemContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(255)
                 .HasColumnName("name");
+            entity.Property(e => e.Resolution).HasColumnName("resolution");
             entity.Property(e => e.Type).HasColumnName("type");
             entity.Property(e => e.UnitId).HasColumnName("unit_id");
 

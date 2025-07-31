@@ -80,10 +80,10 @@ public class HeatPumpScheduleRunner(
 
                 if (coolingTankTemperatureLower.HasValue && coolingSupplyTemperature.HasValue && actualActiveCoolingStart.HasValue)
                 {
-                    var coolingStartTemperatureThreshold = coolingSupplyTemperature.Value + 5;
+                    //var coolingStartTemperatureThreshold = coolingSupplyTemperature.Value + 5;
 
-                    activeCoolingStart.CurrentValue = actualActiveCoolingStart;
-                    activeCoolingStart.NewValue = coolingTankTemperatureLower < coolingStartTemperatureThreshold ? 300 : 30;
+                    //activeCoolingStart.CurrentValue = actualActiveCoolingStart;
+                    //activeCoolingStart.NewValue = coolingTankTemperatureLower < coolingStartTemperatureThreshold ? 300 : 30;
                 }
             }
 

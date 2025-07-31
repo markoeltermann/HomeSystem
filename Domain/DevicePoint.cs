@@ -21,6 +21,8 @@ public partial class DevicePoint
 
     public string? Type { get; set; }
 
+    public int? Resolution { get; set; }
+
     public virtual DataType DataType { get; set; } = null!;
 
     public virtual Device Device { get; set; } = null!;

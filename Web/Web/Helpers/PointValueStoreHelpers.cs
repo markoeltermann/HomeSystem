@@ -33,16 +33,27 @@ public static class PointValueStoreHelpers
         valueContainer.Values[i * 6 + 5] = new NumericValueDto { Timestamp = time.AddMinutes(50), Value = value };
     }
 
-    public static string GetPointValueRequestUrl(int pointId, DateOnly from, DateOnly upTo, string? baseUrl)
+    public static string GetPointValueRequestUrl(int pointId, DateOnly from, DateOnly upTo, string? baseUrl, int? resolution)
     {
         if (baseUrl.IsNullOrEmpty())
         {
             throw new BadRequestException("Point value store connector url has not been set up.");
         }
 
+        if (resolution == null)
+        {
+            resolution = 10;
+            if (from >= new DateOnly(2025, 7, 31) && (upTo.DayNumber - from.DayNumber) <= 2)
+            {
+                resolution = 5;
+            }
+        }
+
         var url = UrlHelpers.GetUrl(baseUrl, $"points/{pointId}/values",
             [KeyValuePair.Create("from", (string?)from.ToString("yyyy-MM-dd")),
-            KeyValuePair.Create("upTo", (string?)upTo.ToString("yyyy-MM-dd"))]);
+            KeyValuePair.Create("upTo", (string?)upTo.ToString("yyyy-MM-dd")),
+            KeyValuePair.Create("resolution", resolution.ToString())
+        ]);
 
         return url;
     }
@@ -51,7 +62,7 @@ public static class PointValueStoreHelpers
     {
         var point = points.FirstOrDefault(x => x.Address == address) ?? throw new BadRequestException("Schedule points have not been configured");
 
-        var values = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(point.Id, date, date, baseUrl));
+        var values = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(point.Id, date, date, baseUrl, 10));
 
         if (values == null || values.Values == null || values.Values.Length != 24 * 6 + 1)
         {

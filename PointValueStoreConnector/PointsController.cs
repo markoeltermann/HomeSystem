@@ -27,7 +27,7 @@ public class PointsController(HomeSystemContext context, PointValueStore pointVa
             ? devicePoint.EnumMembers.OrderBy(x => x.Value).ToArray()
             : null;
 
-        return new ResponseValueContainerDto
+        var result = new ResponseValueContainerDto
         {
             Values = pointValueStore.ReadNumericValues(devicePoint.DeviceId, devicePoint.Id, from, upTo, resolution: resolution).Select(x =>
             {
@@ -46,6 +46,21 @@ public class PointsController(HomeSystemContext context, PointValueStore pointVa
             }).ToArray(),
             Unit = devicePoint.DataType.Name is "Boolean" ? "bool" : devicePoint.Unit?.Name ?? "unk"
         };
+
+        if (resolution == 5 && devicePoint.Resolution >= 10)
+        {
+            for (int i = 0; i < result.Values.Length - 1; i++)
+            {
+                var p = result.Values[i];
+                var p1 = result.Values[i + 1];
+                if (p.Timestamp.Hour == p1.Timestamp.Hour && p.Value != null && p1.Value == null)
+                {
+                    p1.Value = p.Value;
+                }
+            }
+        }
+
+        return result;
     }
 
     private static (double?, string?) GetEnumValue(EnumMember[] enumMembers, double? value)
