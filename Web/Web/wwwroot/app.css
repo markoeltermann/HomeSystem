@@ -67,7 +67,7 @@ h1:focus {
 }
 
 .sidebar {
-    width: 150px;
+    width: 22em;
 }
 
 
@@ -108,4 +108,15 @@ h1:focus {
 .small-chart {
     margin-left: calc(var(--bs-gutter-x) * -.5);
     margin-right: calc(var(--bs-gutter-x) * -.5);
+}
+
+.no-marker {
+    list-style-type: none;
+}
+
+.bullet {
+    width: 0.8em;
+    height: 0.8em;
+    border-radius: 100px;
+    display: inline-block;
 }

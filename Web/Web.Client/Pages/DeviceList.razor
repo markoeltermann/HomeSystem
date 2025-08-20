@@ -1,25 +1,63 @@
-@using System.Globalization
+﻿@using System.Globalization
 @using Web.Client.DTOs
 
-<div class="overflow-y-auto">
+<div class="flex-shrink-0 sidebar">
     @if (Devices != null)
     {
-        foreach (var item in Devices)
+        <div class="d-flex justify-content-between align-items-baseline">
+            <button class="btn btn-light mt-1 mb-2 ms-1" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasExample" aria-controls="offcanvasExample">
+                Select points
+            </button>
+            <span>@SelectedTimestamp?.ToString("yyyy-MM-dd HH:mm")</span>
+        </div>
+
+        @if (Devices.Any(d => d.Points != null && d.Points.Any(p => p.IsSelected)))
         {
-            if (item.Points != null)
-            {
-                <span>@item.Name</span>
-                @foreach (var point in item.Points)
+            <div class="d-flex flex-column">
+                @foreach (var item in Devices)
                 {
-                    <div class="form-check ms-3">
-                        <InputCheckbox class="form-check-input" id="@("point" + point.Id)" @bind-Value=point.IsSelected @bind-Value:after="OnSelectedValuesUpdated" />
-                        <label class="form-check-label" for="@("point" + point.Id)">
-                            @(point.DataTypeName![0..1] + " " + point.Name + (point.Unit != null ? $" ({point.Unit})" : null))
-                        </label>
-                    </div>
+                    @if (item.Points != null && item.Points.Any(x => x.IsSelected))
+                    {
+                        <span>@item.Name</span>
+                        <ul class="no-marker">
+                            @foreach (var point in item.Points.Where(x => x.IsSelected))
+                            {
+                                <li class="d-flex align-items-baseline">
+                                    <span class="bullet me-1" style="background-color: @point.Color"></span>
+                                    <span>@point.Name</span>
+                                    <span class="ms-auto">@(point.SelectedValue + (point.Unit != null ? $" {point.Unit}" : null))</span>
+                                </li>
+                            }
+                        </ul>
+                    }
                 }
-            }
+            </div>
         }
+
+        <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasExample" aria-labelledby="offcanvasLabel" data-bs-backdrop="false">
+            <div class="offcanvas-header">
+                @* <h5 class="offcanvas-title" id="offcanvasLabel">Offcanvas</h5> *@
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body">
+                @foreach (var item in Devices)
+                {
+                    if (item.Points != null)
+                    {
+                        <span>@item.Name</span>
+                        @foreach (var point in item.Points)
+                        {
+                            <div class="form-check ms-3">
+                                <InputCheckbox class="form-check-input" id="@("point" + point.Id)" @bind-Value=point.IsSelected @bind-Value:after="OnSelectedValuesUpdated" />
+                                <label class="form-check-label" for="@("point" + point.Id)">
+                                    @(point.DataTypeName![0..1] + " " + point.Name + (point.Unit != null ? $" ({point.Unit})" : null))
+                                </label>
+                            </div>
+                        }
+                    }
+                }
+            </div>
+        </div>
     }
 </div>
 
@@ -30,8 +68,13 @@
     [Parameter]
     public EventCallback SelectedValuesUpdated { get; set; }
 
+    [Parameter]
+    public DateTime? SelectedTimestamp { get; set; }
+
     private async Task OnSelectedValuesUpdated()
     {
         await SelectedValuesUpdated.InvokeAsync(null);
     }
+
+    public void Render() => StateHasChanged();
 }

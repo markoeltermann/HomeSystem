@@ -40,7 +40,7 @@ Timer.set(10000, true, function () {
 });
 
 function processStep(httpResult) {
-    if (httpResult.code !== 200) {
+    if (!httpResult || httpResult.code !== 200) {
         turnOff('ventilation api returned failure code ' + httpResult.code);
         return;
     }

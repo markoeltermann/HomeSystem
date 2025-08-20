@@ -23,7 +23,8 @@ public class DevicesController(HomeSystemContext context) : ControllerBase
                     Id = dp.Id,
                     Name = dp.Name,
                     DataTypeName = dp.DataType.Name,
-                    Unit = dp.Unit!.Name
+                    Unit = dp.Unit!.Name,
+                    Resolution = dp.Resolution,
                 }).ToArray()
             })
             .ToArrayAsync();

@@ -2,6 +2,7 @@
   "profiles": {
     "http": {
       "commandName": "Project",
+      "launchBrowser": true,
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
@@ -22,8 +23,8 @@
     "Watch": {
       "commandName": "Executable",
       "executablePath": "dotnet.exe",
-      "workingDirectory": "$(ProjectDir)",
       "commandLineArgs": "watch --non-interactive run",
+      "workingDirectory": "$(ProjectDir)",
       "launchBrowser": true,
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"

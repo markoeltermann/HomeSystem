@@ -1,4 +1,12 @@
 ﻿@using System.Globalization
+@using ScottPlot
+@using ScottPlot.AutoScalers
+@using ScottPlot.AxisPanels
+@using ScottPlot.Blazor
+@using ScottPlot.Palettes
+@using ScottPlot.Panels
+@using ScottPlot.Plottables
+@using SkiaSharp
 @using Web.Client.DTOs
 @inject NavigationManager navManager
 @inject HttpClient http
@@ -30,9 +38,9 @@
                     <button type="button" class="btn btn-primary chart-button-narrow" @onclick="OnNextDayClick">▷</button>
                 </div>
             </div>
-            @if (IsLoading && !IsSmall)
+            @if (!IsSmall)
             {
-                <div class="progress mt-2 loading-bar" role="progressbar">
+                <div class="progress mt-2 loading-bar @(IsLoading ? "" : "invisible")" role="progressbar">
                     <div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div>
                 </div>
             }
@@ -59,24 +67,13 @@
 <div class="row flex-grow-1">
     <div class="col pb-2 @(IsSmall ? "" : "ps-4 pe-4")">
         <div class="@(IsSmall ? "small-chart" : "h-100")">
-            <ApexChart TItem="NumericValueDto" Options="Options" @ref="apexChart" XAxisType="XAxisType.Datetime">
-                @foreach (var series in Values)
-                {
-                    <ApexPointSeries TItem="NumericValueDto"
-                                     Items="series.Item2"
-                                     Name="@series.Item1"
-                                     SeriesType="SeriesType.Line"
-                                     XValue="@(e => e.Timestamp)"
-                                     YValue="@(e => (decimal?)e.Value)" />
-                }
-
-            </ApexChart>
+            <BlazorPlot @ref="blazorPlot" Style="@chartStyle"></BlazorPlot>
         </div>
     </div>
 </div>
 
 @code {
-    ApexChart<NumericValueDto> apexChart = null!;
+    BlazorPlot blazorPlot = null!;
 
     [SupplyParameterFromQuery(Name = "df")]
     public string? DateFromQ { get; set; }
@@ -90,13 +87,24 @@
     [Parameter]
     public int WindowWidth { get; set; }
 
+    [Parameter]
+    public EventCallback Updated { get; set; }
+
     public DateTime DateFrom { get; set; }
 
     public DateTime DateUpTo { get; set; }
 
+    public DateTime? SelectedTimestamp { get; set; }
+
     bool IsLoading { get; set; }
 
     int generation;
+    string chartStyle = "";
+    Crosshair? crossHair;
+    IPalette? palette;
+    bool isHoverLocked;
+
+    private float FontSize => IsSmall ? 10f : 12f;
 
     private async Task OnPreviousDayClick()
     {
@@ -173,6 +181,11 @@
         if (Devices.Length == 0)
             return;
 
+        while (blazorPlot?.Plot == null)
+        {
+            await Task.Delay(100);
+        }
+
         var selectedDevicePointIds = Devices.SelectMany(d => d.Points!.Where(p => p.IsSelected)).Select(d => d.Id).ToArray();
         navManager.NavigateTo(navManager.GetUriWithQueryParameters(new Dictionary<string, object?> {
             { "df", DateFrom.ToString("yyyy-MM-dd") },
@@ -183,11 +196,11 @@
 
         var currentGeneration = generation;
 
-        var newValues = new List<(string name, ValueContainerDto values)>();
+        var newValues = new List<(DevicePointDto pointDto, string name, ValueContainerDto values)>();
 
         IsLoading = true;
-        StateHasChanged();
-        // await Task.Delay(1000);
+
+        var tasks = new List<(DeviceDto, DevicePointDto, Task<ValueContainerDto?>)>();
 
         foreach (var device in Devices)
         {
@@ -196,8 +209,8 @@
                 foreach (var point in device.Points.Where(x => x.IsSelected))
                 {
                     var id = point.Id;
-                    var values = await http.GetFromJsonAsync<ValueContainerDto>($"api/devicePoints/{id}/values?from={DateFrom:yyyy-MM-dd}&upTo={DateUpTo:yyyy-MM-dd}");
-                    newValues.Add((device.Name + ": " + point.Name, values!));
+                    var task = http.GetFromJsonAsync<ValueContainerDto>($"api/devicePoints/{id}/values?from={DateFrom:yyyy-MM-dd}&upTo={DateUpTo:yyyy-MM-dd}");
+                    tasks.Add((device, point, task));
 
                     if (currentGeneration != generation)
                         return;
@@ -205,146 +218,225 @@
             }
         }
 
+        if (currentGeneration != generation)
+            return;
+
+        foreach (var (device, point, task) in tasks)
+        {
+            var values = await task;
+            newValues.Add((point, device.Name + ": " + point.Name, values!));
+
+            if (currentGeneration != generation)
+                return;
+        }
+
+        blazorPlot.Plot.Clear<Scatter>();
+        blazorPlot.Plot.Axes.Remove(Edge.Right);
+        isHoverLocked = false;
+
         if (newValues.Any())
         {
-            var values = new List<(string, NumericValueDto[])>();
-            var yAxes = new List<YAxis>();
+            foreach (var (point, _, values) in newValues)
+            {
+                if (point.Resolution == null || point.Resolution <= 10)
+                {
+                    var lastWithValue = values.Values.Where(x => x.Value.HasValue || x.StringValue != null).LastOrDefault();
+                    if (lastWithValue != null)
+                    {
+                        SelectedTimestamp = lastWithValue.Timestamp;
+                        var index = Array.IndexOf(values.Values, lastWithValue);
+                        foreach (var (point2, _, values2) in newValues)
+                        {
+                            SetSelectedValue(point2, values2, index);
+                        }
+                        SetCrosshairPosition(lastWithValue.Timestamp);
+                        break;
+                    }
+                }
+            }
+
             var byUnit = newValues.GroupBy(x => x.values.Unit).ToList();
-            var isFirstUnit = true;
+            var unitIndex = 0;
+            var seriesIndex = 0;
             foreach (var unitValues in byUnit)
             {
                 var isFirstInGroup = true;
                 string? firstSeriesName = null;
 
-                foreach (var (name, valueCollection) in unitValues)
+                IYAxis yAxis;
+                if (unitIndex > 0)
+                {
+                    yAxis = blazorPlot.Plot.Axes.AddRightAxis();
+                    if (unitValues.Key == "bool")
+                    {
+                        yAxis.IsVisible = false;
+                    }
+                }
+                else
+                {
+                    yAxis = blazorPlot.Plot.Axes.Left;
+                }
+
+                if (unitValues.Key == "%")
+                {
+                    yAxis.Min = 0.0;
+                    yAxis.Max = 100.0;
+                }
+                else
+                {
+                    yAxis.Range.Reset();
+                }
+                yAxis.TickLabelStyle.FontSize = FontSize;
+
+                foreach (var (point, name, valueCollection) in unitValues)
                 {
                     if (isFirstInGroup)
                         firstSeriesName = name;
-                    values.Add((name, valueCollection.Values));
 
-                    var yAxis = new YAxis
-                    {
-                        SeriesName = firstSeriesName,
-                        Show = isFirstInGroup,
-                        Opposite = !isFirstUnit
-                    };
-                    if (unitValues.Key == "%")
-                    {
-                        yAxis.Min = 0.0;
-                        yAxis.Max = 100.0;
-                    }
-                    var fractionDigits = unitValues.Key == "EUR/kWh" ? 4 : 1;
-                    yAxis.Labels = new YAxisLabels
-                    {
-                        Formatter = $"function (value) {{" +
-                            $"return value?.toLocaleString(undefined, {{ minimumFractionDigits: {fractionDigits}, maximumFractionDigits: {fractionDigits}, useGrouping: false }}); }}",
-                        Show = unitValues.Key != "bool",
-                        Style = new AxisLabelStyle
-                        {
-                            FontSize = "1em",
-                            FontFamily = "inherit",
-                        },
-                    };
-                    yAxes.Add(yAxis);
+                    var color = palette!.GetColor(seriesIndex++);
+                    var signal = blazorPlot.Plot.Add.ScatterLine(valueCollection.Values.Select(x => x.Timestamp).ToArray(),
+                        valueCollection.Values.Select(x => x.Value ?? double.NaN).ToArray(),
+                        color);
+                    point.Color = color.ToHex();
+                    signal.LineStyle.Width = 1.8f;
+                    signal.Axes.YAxis = yAxis;
+
                     isFirstInGroup = false;
                 }
 
-                isFirstUnit = false;
+                unitIndex++;
             }
 
-            Values = values;
+            Values = newValues;
 
-            var height = "100%";
-            if (IsSmall)
-            {
-                height = $"{(WindowWidth * 0.7 + selectedDevicePointIds.Length * 10):0}px";
-            }
+            var xAxis = blazorPlot.Plot.Axes.GetXAxes().First(x => x.Edge == Edge.Bottom);
+            xAxis.Min = newValues[0].values.Values[0].Timestamp.ToOADate();
+            xAxis.Max = newValues[0].values.Values[^1].Timestamp.ToOADate();
+            xAxis.TickLabelStyle.FontSize = FontSize;
 
-            Options = CreateChartOptions(yAxes, height);
+            blazorPlot.Plot.MoveToFront(crossHair!);
         }
         else
         {
-            Values = new List<(string, NumericValueDto[])>();
-            Options = CreateChartOptions();
+            Values = new List<(DevicePointDto pointDto, string name, ValueContainerDto values)>();
         }
         IsLoading = false;
-        await apexChart.UpdateSeriesAsync(false);
-        StateHasChanged();
+
+        blazorPlot.Refresh();
+        await OnUpdated();
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private Task OnUpdated()
     {
-        if (!firstRender && apexChart != null)
-            await apexChart.RenderAsync();
+        return Updated.InvokeAsync();
     }
 
-    List<(string, NumericValueDto[])> Values { get; set; } = new();
-
-    ApexChartOptions<NumericValueDto> Options = CreateChartOptions();
-
-    private static ApexChartOptions<NumericValueDto> CreateChartOptions(List<YAxis>? yAxes = null, string? height = "100%")
+    protected override Task OnAfterRenderAsync(bool firstRender)
     {
-        var options = new ApexChartOptions<NumericValueDto>
+        if (firstRender)
         {
-            Colors = ["#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78",
-                            "#2ca02c", "#98df8a", "#d62728", "#ff9896",
-                            "#9467bd", "#c5b0d5", "#8c564b", "#c49c94",
-                            "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7",
-                            "#bcbd22", "#dbdb8d", "#17becf", "#9edae5"],
-            Legend = new Legend
+            blazorPlot.Plot.Axes.ContinuouslyAutoscale = false;
+            blazorPlot.Plot.Axes.AutoScaler = new FractionalAutoScaler(0, 0.1);
+            blazorPlot.Plot.Axes.ContinuousAutoscaleAction = (r) => throw new Exception();
+
+            blazorPlot.Plot.Axes.DateTimeTicksBottom();
+            blazorPlot.UserInputProcessor.Disable();
+
+            static string CustomFormatter(DateTime dt)
             {
-                Show = true,
-                FontSize = "inherit",
-                FontFamily = "inherit",
-            },
-            Chart = new Chart
-            {
-                Animations = new Animations
-                {
-                    Enabled = false
-                },
-                Height = height,
-            },
-            Stroke = new Stroke
-            {
-                Width = 1.9
-            },
-            Xaxis = new XAxis
-            {
-                Labels = new XAxisLabels
-                {
-                    DatetimeUTC = false,
-                    Style = new AxisLabelStyle
-                    {
-                        FontSize = "inherit",
-                        FontFamily = "inherit",
-                    },
-                },
-            },
-            Grid = new Grid
-            {
-                Xaxis = new GridXAxis
-                {
-                    Lines = new Lines
-                    {
-                        Show = true
-                    }
-                }
-            },
-            Tooltip = new Tooltip
-            {
-                Shared = true,
-                X = new TooltipX
-                {
-                    Format = "MM-dd HH:mm"
-                },
-                FollowCursor = true
+                bool isMidnight = dt is { Hour: 0, Minute: 0, Second: 0 };
+                return isMidnight ? dt.ToString("yyyy-MM-dd") : dt.ToString("HH:mm");
             }
-        };
-        if (yAxes != null)
-            options.Yaxis = yAxes;
-        return options;
+
+            var tickGen = (ScottPlot.TickGenerators.DateTimeAutomatic)blazorPlot.Plot.Axes.Bottom.TickGenerator;
+            tickGen.LabelFormatter = CustomFormatter;
+
+            palette = new Category20();
+
+            crossHair = blazorPlot.Plot.Add.Crosshair(0, 0);
+            crossHair.HorizontalLine.IsVisible = false;
+            crossHair.VerticalLine.Color = Colors.Gray;
+            crossHair.VerticalLine.LabelFontColor = Colors.Black;
+
+            blazorPlot.MouseMoved = async (s, p) =>
+            {
+                await HandleMouseEvent(p, false);
+            };
+            blazorPlot.MouseButtonReleased = async (s, p) =>
+            {
+                await HandleMouseEvent(p.Item1, true);
+            };
+
+            crossHair.TextBackgroundColor = Colors.White;
+        }
+
+        var height = "99.5%";
+        if (IsSmall)
+        {
+            height = $"{(WindowWidth * 0.7):0}px";
+        }
+        chartStyle = $"width: 100%; touch-action:pan-y; height: {height};";
+        crossHair!.FontSize = FontSize;
+
+        return Task.CompletedTask;
     }
+
+    private async Task HandleMouseEvent(Pixel p, bool isRelease)
+    {
+        if (!isRelease && isHoverLocked)
+            return;
+
+        Pixel mousePixel = new(p.X, p.Y);
+        Coordinates mouseCoordinates = blazorPlot.Plot.GetCoordinates(mousePixel);
+
+        if (Values.Any())
+        {
+            var v = Values[0].values.Values;
+            var minX = v[0].Timestamp.ToOADate();
+            var maxX = v[^1].Timestamp.ToOADate();
+            var index = (int)Math.Round((mouseCoordinates.X - minX) * v.Length / (maxX - minX));
+            index = Math.Clamp(index, 0, v.Length - 1);
+
+            SelectedTimestamp = v[index].Timestamp;
+
+            SetCrosshairPosition(v[index].Timestamp);
+
+            foreach (var (point, _, valueContainer) in Values)
+            {
+                SetSelectedValue(point, valueContainer, index);
+            }
+
+            if (isRelease)
+            {
+                isHoverLocked = !isHoverLocked;
+            }
+
+            await OnUpdated();
+        }
+        else
+        {
+            crossHair!.IsVisible = false;
+            isHoverLocked = false;
+        }
+
+        blazorPlot.Refresh();
+    }
+
+    private void SetCrosshairPosition(DateTime timestamp)
+    {
+        crossHair!.VerticalLine.X = timestamp.ToOADate();
+        crossHair.VerticalLine.Text = timestamp.ToString("dd HH:mm");
+        crossHair.IsVisible = true;
+    }
+
+    private void SetSelectedValue(DevicePointDto point, ValueContainerDto values, int index)
+    {
+        var value = values.Values[index];
+        var digits = point.DataTypeName == "Float" ? point.Unit == "EUR/kWh" ? 4 : 1 : 0;
+        point.SelectedValue = value.StringValue ?? value.Value?.ToString("F" + digits) ?? "-";
+    }
+
+    List<(DevicePointDto pointDto, string name, ValueContainerDto values)> Values { get; set; } = new();
 
     [Parameter]
     public DeviceDto[] Devices { get; set; } = [];
@@ -366,4 +458,81 @@
         bool TryParseDate(string? s, out DateTime d)
             => DateTime.TryParseExact(s, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out d);
     }
+
+    // public class Wrapping : ILegendLayout
+    // {
+    //     public LegendLayout GetLayout(ScottPlot.Legend legend, LegendItem[] items, PixelSize maxSize)
+    //     {
+    //         using SKPaint paint = new();
+    //         PixelSize maxSizeAfterPadding = maxSize.Contracted(legend.Padding);
+    //         PixelRect maxRectAfterPadding = new(0, maxSizeAfterPadding.Width, maxSizeAfterPadding.Height, 0);
+    //         PixelSize[] labelSizes = items.Select(x => x.LabelStyle.Measure(x.LabelText, paint).Size).ToArray();
+    //         float maxLabelWidth = labelSizes.Select(x => x.Width).Max();
+    //         float maxLabelHeight = labelSizes.Select(x => x.Height).Max();
+    //         float maxItemWidth = legend.SymbolWidth + legend.SymbolPadding + maxLabelWidth;
+    //         float maxItemHeight = maxLabelHeight;
+
+    //         PixelRect[] labelRects = new PixelRect[items.Length];
+    //         PixelRect[] symbolRects = new PixelRect[items.Length];
+
+    //         Pixel nextPixel = new(0, 0);
+    //         for (int i = 0; i < items.Length; i++)
+    //         {
+    //             float itemWidth = legend.TightHorizontalWrapping
+    //                 ? legend.SymbolWidth + legend.SymbolPadding + labelSizes[i].Width
+    //                 : maxItemWidth;
+
+    //             // if the next position will cause an overflow, wrap to the next position
+    //             if (legend.Orientation == ScottPlot.Orientation.Horizontal)
+    //             {
+    //                 if (nextPixel.X + itemWidth > maxSizeAfterPadding.Width)
+    //                 {
+    //                     nextPixel = new(0, nextPixel.Y + maxItemHeight + legend.InterItemPadding.Bottom);
+    //                 }
+    //             }
+    //             else
+    //             {
+    //                 if (nextPixel.Y + maxItemHeight > maxSizeAfterPadding.Height)
+    //                 {
+    //                     nextPixel = new(nextPixel.X + itemWidth + legend.InterItemPadding.Right, 0);
+    //                 }
+    //             }
+
+    //             // create rectangles for the item using the current position
+    //             PixelRect itemRect = new(nextPixel, new PixelSize(itemWidth, maxItemHeight));
+    //             itemRect = itemRect.Intersect(maxRectAfterPadding);
+
+    //             symbolRects[i] = new(itemRect.Left, itemRect.Left + legend.SymbolWidth, itemRect.Bottom, itemRect.Top);
+    //             labelRects[i] = new(
+    //                 left: itemRect.Left + legend.SymbolWidth + legend.SymbolPadding,
+    //                 right: itemRect.Right,
+    //                 bottom: itemRect.Bottom,
+    //                 top: itemRect.Top);
+
+    //             // move the position forward according to the size of this item
+
+    //             if (legend.Orientation == ScottPlot.Orientation.Horizontal)
+    //             {
+    //                 nextPixel = new(nextPixel.X + itemWidth + legend.InterItemPadding.Right, nextPixel.Y);
+    //             }
+    //             else
+    //             {
+    //                 nextPixel = new(nextPixel.X, nextPixel.Y + maxItemHeight + legend.InterItemPadding.Bottom);
+    //             }
+    //         }
+
+    //         float tightWidth = Math.Min(labelRects.Select(x => x.Right).Max(), maxSizeAfterPadding.Width);
+    //         float tightHeight = Math.Min(labelRects.Select(x => x.Bottom).Max(), maxSizeAfterPadding.Height);
+    //         PixelRect legendRect = new(0, tightWidth + legend.Padding.Horizontal, tightHeight + legend.Padding.Vertical, 0);
+    //         PixelOffset paddingOffset = new(legend.Padding.Left, legend.Padding.Top);
+
+    //         return new LegendLayout
+    //         {
+    //             LegendItems = items,
+    //             LegendRect = legendRect,
+    //             LabelRects = labelRects.Select(x => x.WithOffset(paddingOffset)).ToArray(),
+    //             SymbolRects = symbolRects.Select(x => x.WithOffset(paddingOffset)).ToArray(),
+    //         };
+    //     }
+    // }
 }

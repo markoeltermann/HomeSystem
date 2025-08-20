@@ -15,21 +15,19 @@
     <div class="d-flex flex-column">
         @if (Devices.Length > 0)
         {
-            @* <div class="ratio ratio-4x3"> *@
-                <DeviceChart Devices="@Devices" @ref=deviceChart IsSmall="@_windowSize.IsExtraSmall" WindowWidth="@_windowSize.Width" />
-            @* </div> *@
+            <DeviceChart Devices="@Devices" @ref=deviceChart IsSmall="@_windowSize.IsExtraSmall" WindowWidth="@_windowSize.Width" Updated="OnChartUpdated" />
         }
-        <DeviceList Devices="@Devices" SelectedValuesUpdated="@OnSelectedValuesUpdated" />
+        <DeviceList Devices="@Devices" SelectedValuesUpdated="@OnSelectedValuesUpdated" @ref="deviceList" SelectedTimestamp="@deviceChart?.SelectedTimestamp" />
     </div>
 }
 else
 {
     <div class="d-flex flex-row h-100">
-        <DeviceList Devices="@Devices" SelectedValuesUpdated="@OnSelectedValuesUpdated" />
+        <DeviceList Devices="@Devices" SelectedValuesUpdated="@OnSelectedValuesUpdated" @ref="deviceList" SelectedTimestamp="@deviceChart?.SelectedTimestamp" />
         <div class="flex-grow-1 d-flex flex-column overflow-hidden pt-1 ms-3">
             @if (Devices.Length > 0)
             {
-                <DeviceChart Devices="@Devices" @ref=deviceChart />
+                <DeviceChart Devices="@Devices" @ref=deviceChart Updated="OnChartUpdated" />
             }
         </div>
     </div>
@@ -42,6 +40,7 @@ else
     DeviceDto[] Devices { get; set; } = [];
 
     DeviceChart deviceChart = null!;
+    DeviceList deviceList = null!;
 
     private WindowSize _windowSize = new WindowSize();
 
@@ -70,31 +69,8 @@ else
     private void HandleWindowResize(WindowSize windowSize)
     {
         _windowSize = windowSize;
-        // UpdateLayoutBasedOnWindowSize(windowSize);
         StateHasChanged();
     }
-
-    // private void UpdateLayoutBasedOnWindowSize(WindowSize windowSize)
-    // {
-    //     // Update flags and classes based on window size
-    //     _isSmallScreen = windowSize.IsExtraSmall || windowSize.IsSmall;
-
-    //     // When screen is extra small, we change the layout to be more mobile friendly
-    //     if (windowSize.IsExtraSmall)
-    //     {
-    //         _viewClassName = "d-flex flex-column h-100";
-    //     }
-    //     // Small to medium screens use row layout but might need spacing adjustments
-    //     else if (windowSize.IsSmall || windowSize.IsMedium)
-    //     {
-    //         _viewClassName = "d-flex flex-row h-100";
-    //     }
-    //     // Larger screens use the default layout
-    //     else
-    //     {
-    //         _viewClassName = "d-flex flex-row h-100";
-    //     }
-    // }
 
     private async Task OnSelectedValuesUpdated()
     {
@@ -106,5 +82,13 @@ else
     {
         // Unsubscribe from resize events
         windowSizeService.OnResize -= HandleWindowResize;
+    }
+
+    private void OnChartUpdated()
+    {
+        if (deviceList != null)
+        {
+            deviceList.Render();
+        }
     }
 }
