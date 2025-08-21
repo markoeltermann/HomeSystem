@@ -2,7 +2,7 @@
 @using Web.Client.DTOs
 
 <div class="flex-shrink-0 sidebar">
-    @if (Devices != null)
+    @if (Devices != null && Devices.Any())
     {
         <div class="d-flex justify-content-between align-items-baseline">
             <button class="btn btn-light mt-1 mb-2 ms-1" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasExample" aria-controls="offcanvasExample">

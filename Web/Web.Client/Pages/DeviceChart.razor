@@ -67,13 +67,15 @@
 <div class="row flex-grow-1">
     <div class="col pb-2 @(IsSmall ? "" : "ps-4 pe-4")">
         <div class="@(IsSmall ? "small-chart" : "h-100")">
-            <BlazorPlot @ref="blazorPlot" Style="@chartStyle"></BlazorPlot>
+            <BlazorPlotGL @ref="blazorPlot" Style="@chartStyle"></BlazorPlotGL>
         </div>
     </div>
 </div>
 
 @code {
-    BlazorPlot blazorPlot = null!;
+    BlazorPlotGL blazorPlot = null!;
+
+    private Plot Plot => blazorPlot.Plot;
 
     [SupplyParameterFromQuery(Name = "df")]
     public string? DateFromQ { get; set; }
@@ -231,8 +233,8 @@
         }
 
         blazorPlot.Plot.Clear<Scatter>();
+        blazorPlot.Plot.Clear<Signal>();
         blazorPlot.Plot.Axes.Remove(Edge.Right);
-        isHoverLocked = false;
 
         if (newValues.Any())
         {
@@ -294,12 +296,24 @@
                         firstSeriesName = name;
 
                     var color = palette!.GetColor(seriesIndex++);
-                    var signal = blazorPlot.Plot.Add.ScatterLine(valueCollection.Values.Select(x => x.Timestamp).ToArray(),
-                        valueCollection.Values.Select(x => x.Value ?? double.NaN).ToArray(),
-                        color);
+
+                    IPlottable? plottable = null;
+                    if (valueCollection.Values.All(x => x.Value.HasValue))
+                    {
+                        var spacing = valueCollection.Values[1].Timestamp.ToOADate() - valueCollection.Values[0].Timestamp.ToOADate();
+                        var signal = Plot.Add.Signal(valueCollection.Values.Select(x => x.Value!.Value).ToArray(), spacing, color);
+                        signal.Data.XOffset = valueCollection.Values[0].Timestamp.ToOADate();
+                        plottable = signal;
+                    }
+                    else
+                    {
+                        plottable = blazorPlot.Plot.Add.ScatterLine(valueCollection.Values.Select(x => x.Timestamp).ToArray(),
+                            valueCollection.Values.Select(x => x.Value ?? double.NaN).ToArray(),
+                            color);
+                    }
                     point.Color = color.ToHex();
-                    signal.LineStyle.Width = 1.8f;
-                    signal.Axes.YAxis = yAxis;
+                    ((IHasLine)plottable).LineStyle.Width = 1.8f;
+                    plottable.Axes.YAxis = yAxis;
 
                     isFirstInGroup = false;
                 }
@@ -315,6 +329,8 @@
             xAxis.TickLabelStyle.FontSize = FontSize;
 
             blazorPlot.Plot.MoveToFront(crossHair!);
+
+            isHoverLocked = true;
         }
         else
         {
