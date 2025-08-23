@@ -301,7 +301,7 @@
                     if (valueCollection.Values.All(x => x.Value.HasValue))
                     {
                         var spacing = valueCollection.Values[1].Timestamp.ToOADate() - valueCollection.Values[0].Timestamp.ToOADate();
-                        var signal = Plot.Add.Signal(valueCollection.Values.Select(x => x.Value!.Value).ToArray(), spacing, color);
+                        var signal = Plot.Add.SignalConst(valueCollection.Values.Select(x => x.Value ?? 0.0).ToArray(), spacing, color);
                         signal.Data.XOffset = valueCollection.Values[0].Timestamp.ToOADate();
                         plottable = signal;
                     }
@@ -410,7 +410,7 @@
             var v = Values[0].values.Values;
             var minX = v[0].Timestamp.ToOADate();
             var maxX = v[^1].Timestamp.ToOADate();
-            var index = (int)Math.Round((mouseCoordinates.X - minX) * v.Length / (maxX - minX));
+            var index = (int)Math.Floor((mouseCoordinates.X - minX) * v.Length / (maxX - minX));
             index = Math.Clamp(index, 0, v.Length - 1);
 
             SelectedTimestamp = v[index].Timestamp;
@@ -435,7 +435,7 @@
             isHoverLocked = false;
         }
 
-        blazorPlot.Refresh();
+        _ = Task.Run(() => blazorPlot.Refresh());
     }
 
     private void SetCrosshairPosition(DateTime timestamp)

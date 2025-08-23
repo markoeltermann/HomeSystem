@@ -1,17 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
-    <StaticWebAssetProjectMode>Default</StaticWebAssetProjectMode>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
+		<StaticWebAssetProjectMode>Default</StaticWebAssetProjectMode>
+		<RunAOTCompilation>True</RunAOTCompilation>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Blazor.Bootstrap" Version="3.3.1" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.12" />
-    <PackageReference Include="ScottPlot.Blazor" Version="5.0.55" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Blazor.Bootstrap" Version="3.3.1" />
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.12" />
+		<PackageReference Include="ScottPlot.Blazor" Version="5.0.55" />
+	</ItemGroup>
 
 </Project>
