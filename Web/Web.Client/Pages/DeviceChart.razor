@@ -108,6 +108,8 @@
 
     private float FontSize => IsSmall ? 10f : 12f;
 
+    private Dictionary<IYAxis, string> yAxisUnits = new();
+
     private async Task OnPreviousDayClick()
     {
         DateFrom = DateFrom.AddDays(-1);
@@ -235,6 +237,10 @@
         blazorPlot.Plot.Clear<Scatter>();
         blazorPlot.Plot.Clear<Signal>();
         blazorPlot.Plot.Axes.Remove(Edge.Right);
+        foreach (var axis in Plot.Axes.GetYAxes().Where(x => x.Edge == Edge.Left).Skip(1).ToArray())
+        {
+            Plot.Axes.Remove(axis);
+        }
 
         if (newValues.Any())
         {
@@ -276,8 +282,9 @@
                 }
                 else
                 {
-                    yAxis = blazorPlot.Plot.Axes.Left;
+                    yAxis = blazorPlot.Plot.Axes.AddLeftAxis();
                 }
+                    yAxisUnits[yAxis] = unitValues.Key;
 
                 if (unitValues.Key == "%")
                 {
@@ -352,7 +359,7 @@
         if (firstRender)
         {
             blazorPlot.Plot.Axes.ContinuouslyAutoscale = false;
-            blazorPlot.Plot.Axes.AutoScaler = new FractionalAutoScaler(0, 0.1);
+            blazorPlot.Plot.Axes.AutoScaler = new FractionalAutoScaler(yAxisUnits);
             blazorPlot.Plot.Axes.ContinuousAutoscaleAction = (r) => throw new Exception();
 
             blazorPlot.Plot.Axes.DateTimeTicksBottom();
@@ -384,6 +391,42 @@
             };
 
             crossHair.TextBackgroundColor = Colors.White;
+
+            var leftAxis = Plot.Axes.Left;
+            leftAxis.Min = 0;
+            leftAxis.Max = 120;
+            leftAxis.TickLabelStyle.IsVisible = false;
+            leftAxis.IsVisible = false;
+            Tick[] ticks = [
+                new Tick(10, string.Empty, false),
+                new Tick(12, string.Empty, false),
+                new Tick(15, string.Empty, true),
+                new Tick(20, string.Empty, false),
+                new Tick(24, string.Empty, false),
+                new Tick(30, string.Empty, true),
+                new Tick(36, string.Empty, false),
+                new Tick(40, string.Empty, false),
+                new Tick(45, string.Empty, true),
+                new Tick(48, string.Empty, false),
+                new Tick(50, string.Empty, false),
+                new Tick(60, string.Empty, true),
+                new Tick(70, string.Empty, false),
+                new Tick(72, string.Empty, false),
+                new Tick(75, string.Empty, true),
+                new Tick(84, string.Empty, false),
+                new Tick(80, string.Empty, false),
+                new Tick(90, string.Empty, true),
+                new Tick(96, string.Empty, false),
+                new Tick(100, string.Empty, false),
+                new Tick(105, string.Empty, true),
+                new Tick(108, string.Empty, false),
+                new Tick(110, string.Empty, false),
+    ];
+            leftAxis.TickGenerator = new ScottPlot.TickGenerators.NumericManual(ticks);
+
+            var grid = Plot.Grid;
+            grid.YAxisStyle.MinorLineStyle.Width = 1f;
+            // grid.YAxisStyle.MinorLineStyle.Pattern = LinePattern.DenselyDashed;
         }
 
         var height = "99.5%";
@@ -473,6 +516,117 @@
 
         bool TryParseDate(string? s, out DateTime d)
             => DateTime.TryParseExact(s, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out d);
+    }
+
+    public class FractionalAutoScaler(Dictionary<IYAxis, string> yAxisUnits) : IAutoScaler
+    {
+        public bool InvertedX { get; set; }
+        public bool InvertedY { get; set; }
+
+        private readonly Dictionary<IYAxis, string> yAxisUnits = yAxisUnits;
+
+        public void AutoScaleAll(IEnumerable<IPlottable> plottables)
+        {
+            IEnumerable<IXAxis> xAxes = plottables.Select(x => x.Axes.XAxis).Distinct();
+            IEnumerable<IYAxis> yAxes = plottables.Select(x => x.Axes.YAxis).Distinct();
+
+            xAxes.ToList().ForEach(x => x.Range.Reset());
+            yAxes.ToList().ForEach(x => x.Range.Reset());
+
+            foreach (IPlottable plottable in plottables)
+            {
+                if (!plottable.IsVisible)
+                    continue;
+
+                AxisLimits limits = plottable.GetAxisLimits();
+                plottable.Axes.XAxis.Range.Expand(limits.XRange);
+                plottable.Axes.YAxis.Range.Expand(limits.YRange);
+            }
+        }
+
+        public AxisLimits GetAxisLimits(Plot plot, IXAxis xAxis, IYAxis yAxis)
+        {
+            AxisLimits dataLimits = plot.Axes.GetDataLimits(xAxis, yAxis);
+            ExpandingAxisLimits limits = new(dataLimits);
+
+            if (!limits.IsRealX)
+            {
+                limits.SetX(-10, 10);
+            }
+
+            if (!limits.IsRealY)
+            {
+                limits.SetY(-10, 10);
+            }
+
+            if (limits.Left == limits.Right)
+            {
+                limits.SetX(limits.Left - 1, limits.Right + 1);
+
+                if (limits.Left == limits.Right)
+                {
+                    limits.Left = NumericConversion.DecrementLargeDouble(limits.Left);
+                    limits.Right = NumericConversion.IncrementLargeDouble(limits.Right);
+                }
+            }
+
+            if (limits.Bottom == limits.Top)
+            {
+                limits.SetY(limits.Bottom - 1, limits.Top + 1);
+
+                if (limits.Bottom == limits.Top)
+                {
+                    limits.Bottom = NumericConversion.DecrementLargeDouble(limits.Bottom);
+                    limits.Top = NumericConversion.IncrementLargeDouble(limits.Top);
+                }
+            }
+
+            var r = Math.Pow(10, Math.Round(Math.Log10(limits.VerticalSpan)) - 1);
+
+            var minY = (int)Math.Floor(limits.Bottom / r);
+            var unit = yAxisUnits.GetValueOrDefault(yAxis);
+            if (unit == "EUR/kWh" && minY > 0)
+            {
+                minY = 0;
+                r = Math.Pow(10, Math.Round(Math.Log10(limits.Top)) - 1);
+            }
+            var maxY = (int)Math.Ceiling(limits.Top / r);
+            var delta = maxY - minY;
+
+            while (true)
+            {
+                if ((delta % 3) == 0 || (delta % 4) == 0 || (delta % 5) == 0)
+                {
+                    break;
+                }
+                delta++;
+            }
+
+            if (delta != (maxY - minY))
+            {
+                if ((delta % 2) == 0)
+                {
+                    minY -= delta / 2;
+                    maxY += delta / 2;
+                }
+                else
+                {
+                    minY -= delta / 2;
+                    maxY += delta / 2 + 1;
+                }
+            }
+
+            AxisLimits newLimits = new(
+                left: limits.Left,
+                right: limits.Right,
+                bottom: minY * r,
+                top: maxY * r);
+
+            if (!newLimits.IsReal || !newLimits.HasArea)
+                throw new InvalidOperationException("limits returned by the autoscaler must always be in a good state");
+
+            return newLimits;
+        }
     }
 
     // public class Wrapping : ILegendLayout
