@@ -53,7 +53,7 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
     {
         var tomorrowLocal = timestamp.ToLocalTime().Date.AddDays(1);
 
-        var start = DateOnly.FromDateTime(timestamp.AddDays(-45));
+        var start = DateOnly.FromDateTime(timestamp.AddDays(-90));
         var end = DateOnly.FromDateTime(timestamp.AddDays(2));
 
         var devices = dbContext.Devices.Where(x => x.Type == "solar_model" || x.Type == "deye_inverter" || x.Type == "yrno_weather_forecast")
