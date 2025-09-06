@@ -96,7 +96,7 @@ function processStep(httpResult) {
         //     return;
         // }
 
-        const step = fullDeltaWithDiff / 40 * (current / 30 + 1);
+        const step = fullDeltaWithDiff / 30 * (current / 30 + 1);
         // const step = fullDelta * fullDelta * 5 / 60 + fullDelta * 1 / 6;
         // const sign = Math.sign(fullDelta);
         // const absFullDelta = Math.abs(fullDelta);
@@ -132,7 +132,7 @@ function getMeanDelta(n, withDiffs) {
         if (withDiffs && i > 0) {
             const prev = deltas[i - 1];
             const diff = current - prev;
-            result += diff * 12;
+            result += diff * 9;
         }
     }
 
@@ -144,7 +144,7 @@ function turnOff(reason) {
     isProcessing = false;
     deltas = [];
     current = 0;
-    Shelly.call('Light.Set', { id: 0, on: false, brightness: 0});
+    Shelly.call('Light.Set', { id: 0, on: false, brightness: 0 });
 }
 
 function getSetpoint(dict) {
