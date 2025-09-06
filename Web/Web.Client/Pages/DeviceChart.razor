@@ -105,6 +105,7 @@
     Crosshair? crossHair;
     IPalette? palette;
     bool isHoverLocked;
+    private Color axisColor = new Color(0, 0, 0, 32);
 
     private float FontSize => IsSmall ? 10f : 12f;
 
@@ -284,7 +285,10 @@
                 {
                     yAxis = blazorPlot.Plot.Axes.AddLeftAxis();
                 }
-                    yAxisUnits[yAxis] = unitValues.Key;
+                yAxis.FrameLineStyle.Color = axisColor;
+                yAxis.MajorTickStyle.Color = axisColor;
+                yAxis.MinorTickStyle.Color = Colors.Transparent;
+                yAxisUnits[yAxis] = unitValues.Key;
 
                 if (unitValues.Key == "%")
                 {
@@ -358,11 +362,16 @@
     {
         if (firstRender)
         {
-            blazorPlot.Plot.Axes.ContinuouslyAutoscale = false;
-            blazorPlot.Plot.Axes.AutoScaler = new FractionalAutoScaler(yAxisUnits);
-            blazorPlot.Plot.Axes.ContinuousAutoscaleAction = (r) => throw new Exception();
+            Plot.Axes.ContinuouslyAutoscale = false;
+            Plot.Axes.AutoScaler = new FractionalAutoScaler(yAxisUnits);
+            Plot.Axes.ContinuousAutoscaleAction = (r) => throw new Exception();
 
-            blazorPlot.Plot.Axes.DateTimeTicksBottom();
+            Plot.Axes.DateTimeTicksBottom();
+            
+            Plot.Axes.Top.FrameLineStyle.Color = axisColor;
+            Plot.Axes.Bottom.FrameLineStyle.Color = axisColor;
+            Plot.Axes.Bottom.MajorTickStyle.Color = axisColor;
+
             blazorPlot.UserInputProcessor.Disable();
 
             static string CustomFormatter(DateTime dt)
