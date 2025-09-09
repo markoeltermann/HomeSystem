@@ -24,12 +24,19 @@
 
             <form @onsubmit="OnSaveClick">
                 <div class="row justify-content-center">
-                    <dic class="col">
+                    <div class="col">
                         <div class="input-group mb-3">
                             <span class="input-group-text">Date</span>
                             <InputDate TValue="DateTime" @bind-Value=SelectedDate @bind-Value:after="DateFromUpdated" class="form-control" />
                         </div>
-                    </dic>
+                    </div>
+                    <div class="col-auto">
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-primary chart-button-narrow" @onclick="OnPreviousDayClick">◁</button>
+                            <button type="button" class="btn btn-primary" @onclick="OnTodayClick">Today</button>
+                            <button type="button" class="btn btn-primary chart-button-narrow" @onclick="OnNextDayClick">▷</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="row mb-1 hoverable align-items-center justify-content-center">
@@ -161,6 +168,24 @@
         if (SelectedDateQ != null)
             url += $"?d={SelectedDate:yyyy-MM-dd}";
         return url;
+    }
+
+    private Task OnPreviousDayClick(MouseEventArgs args)
+    {
+        SelectedDate = SelectedDate.AddDays(-1);
+        return DateFromUpdated();
+    }
+
+    private Task OnTodayClick(MouseEventArgs args)
+    {
+        SelectedDate = DateTime.Today;
+        return DateFromUpdated();
+    }
+
+    private Task OnNextDayClick(MouseEventArgs args)
+    {
+        SelectedDate = SelectedDate.AddDays(1);
+        return DateFromUpdated();
     }
 
     private class HourModel

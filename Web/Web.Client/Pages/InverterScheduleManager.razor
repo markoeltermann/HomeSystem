@@ -30,6 +30,13 @@
                             <InputDate TValue="DateTime" @bind-Value=SelectedDate @bind-Value:after="DateFromUpdated" class="form-control" />
                         </div>
                     </div>
+                    <div class="col-auto">
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-primary chart-button-narrow" @onclick="OnPreviousDayClick">◁</button>
+                            <button type="button" class="btn btn-primary" @onclick="OnTodayClick">Today</button>
+                            <button type="button" class="btn btn-primary chart-button-narrow" @onclick="OnNextDayClick">▷</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="row mb-1 hoverable align-items-center justify-content-center">
@@ -187,5 +194,23 @@
         public bool IsGridChargeEnabled { get; set; }
         public bool IsAdaptiveSellEnabled { get; set; }
         public int Hour { get; set; }
+    }
+
+    private Task OnPreviousDayClick(MouseEventArgs args)
+    {
+        SelectedDate = SelectedDate.AddDays(-1);
+        return DateFromUpdated();
+    }
+
+    private Task OnTodayClick(MouseEventArgs args)
+    {
+        SelectedDate = DateTime.Today;
+        return DateFromUpdated();
+    }
+
+    private Task OnNextDayClick(MouseEventArgs args)
+    {
+        SelectedDate = SelectedDate.AddDays(1);
+        return DateFromUpdated();
     }
 }
