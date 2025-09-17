@@ -11,76 +11,92 @@ public class SolarmanV5Service(ILogger<SolarmanV5Service> logger, IConfiguration
 
     public List<PointValueDto>? ReadValues(IList<int> addresses)
     {
-        if (addresses == null)
-            return null;
-
-        if (GetSettings() is not var (loggerIP, loggerPort, loggerSerial, modbusId))
+        try
         {
-            return null;
-        }
+            if (addresses == null)
+                return null;
 
-        if (!addresses.Any())
-            return [];
-
-        if (addresses.Any(x => x is < 0 or > 0xffff))
-        {
-            throw new BadRequestException("Address cannot be less than 0 or more than 0xffff.");
-        }
-
-        var addressBlocks = addresses.Select(x => (ushort)x).OrderBy(x => x).GroupBy(x => x / 100).Select(x => x.ToArray());
-
-        var result = new List<PointValueDto>();
-
-        foreach (var addressBlock in addressBlocks)
-        {
-            var minAddress = addressBlock.Min();
-            var maxAddress = addressBlock.Max();
-
-            var values = ReadValueBlock(minAddress, (ushort)(maxAddress - minAddress + 1), loggerSerial, modbusId, loggerIP, loggerPort);
-            if (values == null)
+            if (GetSettings() is not var (loggerIP, loggerPort, loggerSerial, modbusId))
             {
                 return null;
             }
 
-            foreach (var address in addressBlock)
-            {
-                result.Add(new PointValueDto(address, values[address - minAddress]));
-            }
-        }
+            if (!addresses.Any())
+                return [];
 
-        return result;
+            if (addresses.Any(x => x is < 0 or > 0xffff))
+            {
+                throw new BadRequestException("Address cannot be less than 0 or more than 0xffff.");
+            }
+
+            var addressBlocks = addresses.Select(x => (ushort)x).OrderBy(x => x).GroupBy(x => x / 100).Select(x => x.ToArray());
+
+            var result = new List<PointValueDto>();
+
+            foreach (var addressBlock in addressBlocks)
+            {
+                var minAddress = addressBlock.Min();
+                var maxAddress = addressBlock.Max();
+
+                var values = ReadValueBlock(minAddress, (ushort)(maxAddress - minAddress + 1), loggerSerial, modbusId, loggerIP, loggerPort);
+                if (values == null)
+                {
+                    return null;
+                }
+
+                foreach (var address in addressBlock)
+                {
+                    result.Add(new PointValueDto(address, values[address - minAddress]));
+                }
+            }
+
+            return result;
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Error reading values.");
+            return null;
+        }
     }
 
     public bool WriteValue(int address, int value)
     {
-        if (GetSettings() is not var (loggerIP, loggerPort, loggerSerial, modbusId))
+        try
         {
-            return false;
-        }
-
-        if (address < 0 || address > 0xffff || value < 0 || value > 0xffff)
-        {
-            throw new BadRequestException("Address and value must be between 0 and 0xffff");
-        }
-
-        lock (syncRoot)
-        {
-            var modbusFrame = GetWriteHoldingRegisterFrame(modbusId, (ushort)address, (ushort)value);
-
-            var responseModbusFrame = SendModbusFrame(modbusFrame, loggerSerial, loggerIP, loggerPort);
-            if (responseModbusFrame == null || responseModbusFrame.Length != 8)
+            if (GetSettings() is not var (loggerIP, loggerPort, loggerSerial, modbusId))
             {
                 return false;
             }
 
-            for (int i = 0; i < responseModbusFrame.Length - 2; i++)
+            if (address < 0 || address > 0xffff || value < 0 || value > 0xffff)
             {
-                if (modbusFrame[i] != responseModbusFrame[i])
-                    return false;
+                throw new BadRequestException("Address and value must be between 0 and 0xffff");
             }
-        }
 
-        return true;
+            lock (syncRoot)
+            {
+                var modbusFrame = GetWriteHoldingRegisterFrame(modbusId, (ushort)address, (ushort)value);
+
+                var responseModbusFrame = SendModbusFrame(modbusFrame, loggerSerial, loggerIP, loggerPort);
+                if (responseModbusFrame == null || responseModbusFrame.Length != 8)
+                {
+                    return false;
+                }
+
+                for (int i = 0; i < responseModbusFrame.Length - 2; i++)
+                {
+                    if (modbusFrame[i] != responseModbusFrame[i])
+                        return false;
+                }
+            }
+
+            return true;
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Error writing value.");
+            return false;
+        }
     }
 
     private ushort[]? ReadValueBlock(ushort registerAddress, ushort registerCount, uint loggerSerial, byte modbusId, IPAddress loggerIP, int loggerPort)
@@ -122,7 +138,11 @@ public class SolarmanV5Service(ILogger<SolarmanV5Service> logger, IConfiguration
         var frame = GetOutgoingFrame(loggerSerial, modbusFrame);
 
         var endpoint = new IPEndPoint(loggerIP, loggerPort);
-        using var tcpClient = new TcpClient();
+        using var tcpClient = new TcpClient
+        {
+            ReceiveTimeout = 5000,
+            SendTimeout = 5000,
+        };
         tcpClient.Connect(endpoint);
         using var tcpStream = tcpClient.GetStream();
         tcpStream.Write(frame);
@@ -235,7 +255,6 @@ public class SolarmanV5Service(ILogger<SolarmanV5Service> logger, IConfiguration
             return null;
         }
     }
-
 
     private static ushort CalculateModbusCRC(byte[] frame)
     {

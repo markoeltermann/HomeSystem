@@ -15,7 +15,7 @@
 		<PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
 		<PackageReference Include="Microsoft.ML" Version="4.0.2" />
 		<PackageReference Include="Microsoft.ML.Mkl.Components" Version="4.0.2" />
-		<PackageReference Include="NLog.Extensions.Logging" Version="5.3.14" />
+		<PackageReference Include="NLog.Extensions.Logging" Version="6.0.4" />
 		<PackageReference Include="TuyaNet" Version="1.0.3" />
 	</ItemGroup>
 

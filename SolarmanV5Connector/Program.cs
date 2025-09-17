@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using NLog.Extensions.Logging;
 using SolarmanV5Connector;
 using WebCommonLibrary;
 
@@ -17,6 +18,14 @@ builder.Services.AddSingleton<ScheduleService>();
 builder.Services.AddSingleton<InverterSettingsService>();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ExceptionToProblemDetailsHandler>();
+
+builder.Services.AddLogging(loggingBuilder =>
+{
+    // configure Logging with NLog
+    loggingBuilder.ClearProviders();
+    loggingBuilder.SetMinimumLevel(LogLevel.Information);
+    loggingBuilder.AddNLog();
+});
 
 var app = builder.Build();
 
