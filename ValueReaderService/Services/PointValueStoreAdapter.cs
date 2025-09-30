@@ -20,13 +20,14 @@ public class PointValueStoreAdapter
 
     public PointValueStore Client => pointValueStore;
 
-    public async Task<ResponseValueContainerDto> Get(int pointId, DateOnly date, DateOnly? dateUpTo = null, bool fiveMinResolution = false)
+    public async Task<ResponseValueContainerDto> Get(int pointId, DateOnly date, DateOnly? dateUpTo = null, bool fiveMinResolution = false, bool utc = false)
     {
         var result = await pointValueStore.Points[pointId].Values.GetAsync(x =>
         {
             x.QueryParameters.From = date;
             x.QueryParameters.UpTo = dateUpTo ?? date;
             x.QueryParameters.Resolution = fiveMinResolution ? 5 : 10;
+            x.QueryParameters.Utc = utc;
         });
         var dayCount = dateUpTo == null ? 1 : dateUpTo.Value.DayNumber - date.DayNumber + 1;
         var valuesPerHour = fiveMinResolution ? 12 : 6;

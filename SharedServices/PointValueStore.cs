@@ -102,7 +102,12 @@ public class PointValueStore(ILogger<PointValueStore> logger)
                         Dictionary<string, string> lines;
                         if (File.Exists(group.Key))
                         {
-                            lines = File.ReadAllLines(group.Key).Where(x => !x.IsNullOrEmpty()).Select(x => x.Split('\t')).ToDictionary(x => x[0], x => x[1]);
+                            lines = File.ReadAllLines(group.Key)
+                                .Where(x => !x.IsNullOrEmpty())
+                                .Select(x => x.Split('\t'))
+                                .GroupBy(x => x[0])
+                                .Select(x => x.First())
+                                .ToDictionary(x => x[0], x => x[1]);
                         }
                         else
                         {

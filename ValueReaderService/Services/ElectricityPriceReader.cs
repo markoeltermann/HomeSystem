@@ -1,7 +1,6 @@
 ﻿using CommonLibrary.Extensions;
 using Domain;
 using Microsoft.AspNetCore.WebUtilities;
-using SharedServices;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 
@@ -9,10 +8,12 @@ namespace ValueReaderService.Services;
 
 public class ElectricityPriceReader(
     ILogger<ElectricityPriceReader> logger,
-    PointValueStore pointValueStore,
+    PointValueStoreAdapter pointValueStoreAdapter,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration) : DeviceReader(logger)
 {
+    public override bool StorePointsWithReplace => true;
+
     protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
         var vat = GetVat(configuration);
@@ -29,10 +30,16 @@ public class ElectricityPriceReader(
         var today = timestampLocal.Date;
         var tomorrow = today.AddDays(1);
         var todayDate = DateOnly.FromDateTime(today);
-        var existingValues = pointValueStore.ReadNumericValues(device.Id, npsPriceRawPoint.Id, todayDate, todayDate.AddDays(1), true);
+        //var existingValues = pointValueStore.ReadNumericValues(device.Id, npsPriceRawPoint.Id, todayDate, todayDate.AddDays(1), true);
+        var existingValues = await pointValueStoreAdapter.Get(npsPriceRawPoint.Id, todayDate, todayDate.AddDays(1), true, true);
 
-        if (existingValues.Count(x => x.Item1.Date == today && x.Item2 != null) > 10
-            && (existingValues.Count(x => x.Item1.Date == tomorrow && x.Item2 != null) > 10 || (timestampLocal - timestampLocal.Date) < new TimeSpan(14, 45, 0)))
+        if (existingValues?.Values == null || existingValues.Values.Any(x => x.Timestamp == null))
+        {
+            return null;
+        }
+
+        if (existingValues.Values.Count(x => x.Timestamp!.Value.Date == today && x.Value != null) > 20
+            && (existingValues.Values.Count(x => x.Timestamp!.Value.Date == tomorrow && x.Value != null) > 20 || (timestampLocal - timestampLocal.Date) < new TimeSpan(14, 45, 0)))
         {
             return null;
         }
@@ -49,28 +56,28 @@ public class ElectricityPriceReader(
             return null;
         }
 
-        var existingValueDict = existingValues.ToDictionary(x => x.Item1, x => x.Item2);
-
         var result = new List<PointValue>();
-        foreach (var item in npsResponse.Data.EE.Where(x => x.UnixTimestamp.HasValue && x.Price.HasValue))
+        var validPricePoints = npsResponse.Data.EE.Where(x => x.UnixTimestamp.HasValue && x.Price.HasValue)
+            .Select(x => (DateTimeOffset.FromUnixTimeSeconds(x.UnixTimestamp!.Value).UtcDateTime, x))
+            .ToArray();
+
+        foreach (var ((itemTimestamp, item), (nextTimestamp, next)) in validPricePoints.Zip(validPricePoints.Cast<(DateTime, NpsPrice?)>().Skip(1).Append((default, null))))
         {
-            var npsTimestamp = DateTimeOffset.FromUnixTimeSeconds(item.UnixTimestamp!.Value).UtcDateTime;
-            npsTimestamp = new DateTime(npsTimestamp.Year, npsTimestamp.Month, npsTimestamp.Day, npsTimestamp.Hour, 0, 0, DateTimeKind.Utc);
+            var npsTimestamp = new DateTime(itemTimestamp.Year, itemTimestamp.Month, itemTimestamp.Day, itemTimestamp.Hour, itemTimestamp.Minute / 15 * 15, 0, DateTimeKind.Utc);
             var value = item.Price!.Value / 1000m;
 
-            for (int i = 0; i < 6; i++)
+            var numOfPointsToGenerate = npsTimestamp.Minute == 0 && (next == null || nextTimestamp.Minute == 0) ? 12 : 3;
+
+            for (int i = 0; i < numOfPointsToGenerate; i++)
             {
-                if (!existingValueDict.TryGetValue(npsTimestamp, out var existingValue) || existingValue == null)
-                {
-                    result.Add(new(npsPriceRawPoint, value.ToString(InvariantCulture), npsTimestamp));
-                    var gridPriceRaw = CalculateRawGridPrice(npsTimestamp);
-                    result.Add(new(gridPriceRawPoint, gridPriceRaw.ToString(InvariantCulture), npsTimestamp));
+                result.Add(new(npsPriceRawPoint, value.ToString(InvariantCulture), npsTimestamp));
+                var gridPriceRaw = CalculateRawGridPrice(npsTimestamp);
+                result.Add(new(gridPriceRawPoint, gridPriceRaw.ToString(InvariantCulture), npsTimestamp));
 
-                    var totalBuyPrice = gridPriceRaw * vat + (value <= 0m ? value : value * vat);
-                    result.Add(new(totalBuyPriceRawPoint, totalBuyPrice.ToString(InvariantCulture), npsTimestamp));
-                }
+                var totalBuyPrice = gridPriceRaw * vat + (value <= 0m ? value : value * vat);
+                result.Add(new(totalBuyPriceRawPoint, totalBuyPrice.ToString(InvariantCulture), npsTimestamp));
 
-                npsTimestamp = npsTimestamp.AddMinutes(10);
+                npsTimestamp = npsTimestamp.AddMinutes(5);
             }
         }
 
@@ -100,7 +107,6 @@ public class ElectricityPriceReader(
         const decimal nightPrice = 0.0303m;
         const decimal dayPeakPrice = 0.0818m;
         const decimal weekendPeakPrice = 0.0474m;
-
 
         if (timestamp.Month is 11 or 12 or 1 or 2 or 3)
         {

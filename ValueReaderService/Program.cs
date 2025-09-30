@@ -31,7 +31,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<MyUplinkDeviceReader>();
         services.AddSingleton<AirobotThermostatReader>();
         services.AddSingleton<ModbusDeviceReader>();
-        services.AddSingleton<ElectricityPriceReader>();
+        services.AddScoped<ElectricityPriceReader>();
         services.AddSingleton<YrNoWeatherForecastReader>();
         services.AddScoped<InverterScheduleRunner>();
         services.AddScoped<HeatPumpScheduleRunner>();

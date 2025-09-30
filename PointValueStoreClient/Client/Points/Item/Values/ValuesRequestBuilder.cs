@@ -22,7 +22,7 @@ namespace PointValueStoreClient.Points.Item.Values
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ValuesRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/points/{pointId}/values{?from*,resolution*,upTo*}", pathParameters)
+        public ValuesRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/points/{pointId}/values{?from*,resolution*,upTo*,utc*}", pathParameters)
         {
         }
         /// <summary>
@@ -30,7 +30,7 @@ namespace PointValueStoreClient.Points.Item.Values
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ValuesRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/points/{pointId}/values{?from*,resolution*,upTo*}", rawUrl)
+        public ValuesRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/points/{pointId}/values{?from*,resolution*,upTo*,utc*}", rawUrl)
         {
         }
         /// <returns>A <see cref="global::PointValueStoreClient.Models.ResponseValueContainerDto"/></returns>
@@ -119,6 +119,8 @@ namespace PointValueStoreClient.Points.Item.Values
             public int? Resolution { get; set; }
             [QueryParameter("upTo")]
             public Date? UpTo { get; set; }
+            [QueryParameter("utc")]
+            public bool? Utc { get; set; }
         }
         /// <summary>
         /// Configuration for the request such as headers, query parameters, and middleware options.

@@ -13,7 +13,7 @@ public class PointsController(HomeSystemContext context, PointValueStore pointVa
     private readonly static CultureInfo InvariantCulture = CultureInfo.InvariantCulture;
 
     [HttpGet("{pointId}/values")]
-    public async Task<ActionResult<ResponseValueContainerDto>> GetNumericValue(int pointId, DateOnly from, DateOnly upTo, int? resolution = null)
+    public async Task<ActionResult<ResponseValueContainerDto>> GetNumericValue(int pointId, DateOnly from, DateOnly upTo, bool utc, int? resolution = null)
     {
         var devicePoint = await context.DevicePoints
             .Include(x => x.DataType)
@@ -29,7 +29,7 @@ public class PointsController(HomeSystemContext context, PointValueStore pointVa
 
         var result = new ResponseValueContainerDto
         {
-            Values = pointValueStore.ReadNumericValues(devicePoint.DeviceId, devicePoint.Id, from, upTo, resolution: resolution).Select(x =>
+            Values = pointValueStore.ReadNumericValues(devicePoint.DeviceId, devicePoint.Id, from, upTo, utc, resolution: resolution).Select(x =>
             {
                 var value = x.Item2;
                 string? stringValue = null;
