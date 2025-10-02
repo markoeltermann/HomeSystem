@@ -31,7 +31,7 @@ public class ElectricityPriceReader(
         var tomorrow = today.AddDays(1);
         var todayDate = DateOnly.FromDateTime(today);
         //var existingValues = pointValueStore.ReadNumericValues(device.Id, npsPriceRawPoint.Id, todayDate, todayDate.AddDays(1), true);
-        var existingValues = await pointValueStoreAdapter.Get(npsPriceRawPoint.Id, todayDate, todayDate.AddDays(1), true, true);
+        var existingValues = await pointValueStoreAdapter.Get(npsPriceRawPoint.Id, todayDate, todayDate.AddDays(2), true, true);
 
         if (existingValues?.Values == null || existingValues.Values.Any(x => x.Timestamp == null))
         {
@@ -48,7 +48,7 @@ public class ElectricityPriceReader(
 
         var url = "https://dashboard.elering.ee/api/nps/price";
         url = QueryHelpers.AddQueryString(url, [KeyValuePair.Create("start", (string?)today.ToUniversalTime().ToString("O")),
-            KeyValuePair.Create("end", (string?)tomorrow.AddDays(1).ToUniversalTime().ToString("O"))]);
+            KeyValuePair.Create("end", (string?)tomorrow.AddDays(2).ToUniversalTime().ToString("O"))]);
 
         var npsResponse = await httpClient.GetFromJsonAsync<NpsPriceResponse?>(url);
         if (npsResponse == null || npsResponse.Success != true || npsResponse.Data == null || npsResponse.Data.EE == null)
