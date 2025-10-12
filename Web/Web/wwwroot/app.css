@@ -97,7 +97,7 @@ h1:focus {
 }
 
 .hoverable:hover {
-    background-color: #00000033;
+    background-color: #00000033 !important;
 }
 
 .apexcharts-legend-text {
@@ -119,4 +119,20 @@ h1:focus {
     height: 0.8em;
     border-radius: 100px;
     display: inline-block;
+}
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.tree-toggle {
+    max-width: 1em;
+    max-height: 1em;
+}
+
+.table-row {
+    padding-top: 0.125rem;
+    padding-bottom: 0.125rem;
 }

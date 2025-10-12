@@ -1,6 +1,6 @@
 ﻿namespace Web.Client.DTOs;
 
-public class DayScheduleDtoBase<T> where T : HourlyScheduleDtoBase
+public class DayScheduleDtoBase<T> where T : ScheduleDtoBase
 {
-    public T[] Hours { get; set; } = [];
+    public T[] Entries { get; set; } = [];
 }

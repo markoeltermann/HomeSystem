@@ -120,6 +120,9 @@
   "components": {
     "schemas": {
       "NumericValueDto": {
+        "required": [
+          "timestamp"
+        ],
         "type": "object",
         "properties": {
           "timestamp": {
@@ -139,14 +142,16 @@
         "additionalProperties": false
       },
       "ResponseValueContainerDto": {
+        "required": [
+          "values"
+        ],
         "type": "object",
         "properties": {
           "values": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/NumericValueDto"
-            },
-            "nullable": true
+            }
           },
           "unit": {
             "type": "string",
@@ -156,14 +161,16 @@
         "additionalProperties": false
       },
       "ValueContainerDto": {
+        "required": [
+          "values"
+        ],
         "type": "object",
         "properties": {
           "values": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/NumericValueDto"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false

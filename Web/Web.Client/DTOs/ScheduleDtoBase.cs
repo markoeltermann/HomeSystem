@@ -1,6 +1,6 @@
 ﻿namespace Web.Client.DTOs;
 
-public class HourlyScheduleDtoBase
+public class ScheduleDtoBase
 {
     public int Hour { get; set; }
 }

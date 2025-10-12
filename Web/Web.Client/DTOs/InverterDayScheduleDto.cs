@@ -1,5 +1,5 @@
 ﻿namespace Web.Client.DTOs;
 
-public class InverterDayScheduleDto : DayScheduleDtoBase<InverterHourlyScheduleDto>
+public class InverterDayScheduleDto : DayScheduleDtoBase<InverterScheduleDto>
 {
 }

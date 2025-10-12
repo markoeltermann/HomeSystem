@@ -1,6 +1,7 @@
 ﻿using CommonLibrary.Extensions;
 using CommonLibrary.Helpers;
 using Domain;
+using PointValueStoreClient;
 using Web.Client.DTOs;
 using WebCommonLibrary;
 
@@ -31,6 +32,13 @@ public static class PointValueStoreHelpers
         valueContainer.Values[i * 6 + 3] = new NumericValueDto { Timestamp = time.AddMinutes(30), Value = value };
         valueContainer.Values[i * 6 + 4] = new NumericValueDto { Timestamp = time.AddMinutes(40), Value = value };
         valueContainer.Values[i * 6 + 5] = new NumericValueDto { Timestamp = time.AddMinutes(50), Value = value };
+    }
+
+    public static void Fill15Minutes(ValueContainerDto valueContainer, int i, DateTime time, double? value)
+    {
+        valueContainer.Values[i * 3] = new NumericValueDto { Timestamp = time, Value = value };
+        valueContainer.Values[i * 3 + 1] = new NumericValueDto { Timestamp = time.AddMinutes(5), Value = value };
+        valueContainer.Values[i * 3 + 2] = new NumericValueDto { Timestamp = time.AddMinutes(10), Value = value };
     }
 
     public static string GetPointValueRequestUrl(int pointId, DateOnly from, DateOnly upTo, string? baseUrl, int? resolution)
@@ -65,6 +73,26 @@ public static class PointValueStoreHelpers
         var values = await httpClient.GetFromJsonAsync<ValueContainerDto>(GetPointValueRequestUrl(point.Id, date, date, baseUrl, 10));
 
         if (values == null || values.Values == null || values.Values.Length != 24 * 6 + 1)
+        {
+            throw new BadRequestException($"{address} values could not be retrieved");
+        }
+
+        return values;
+    }
+
+    public static async Task<PointValueStoreClient.Models.ResponseValueContainerDto> GetPointValues(DevicePoint[] points, string address, DateOnly date, PointValueStore pointValueStore, bool fiveMinResolution)
+    {
+        var point = points.FirstOrDefault(x => x.Address == address) ?? throw new BadRequestException("Schedule points have not been configured");
+
+        var values = await pointValueStore.Points[point.Id].Values.GetAsync(x =>
+        {
+            x.QueryParameters.From = date;
+            x.QueryParameters.UpTo = date;
+            x.QueryParameters.Resolution = fiveMinResolution ? 5 : 10;
+            x.QueryParameters.Utc = false;
+        });
+
+        if (values == null || values.Values == null || values.Values.Count != 24 * 6 * (fiveMinResolution ? 2 : 1) + 1)
         {
             throw new BadRequestException($"{address} values could not be retrieved");
         }

@@ -208,9 +208,9 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
             var pointValues = await pointValueStoreAdapter.Get(devicePoints.First(x => x.Type == pointType).Id, start, end);
             foreach (var pointValue in pointValues.Values!)
             {
-                if (!result.TryGetValue(pointValue.Timestamp!.Value.UtcDateTime, out var solarModelPoint))
+                if (!result.TryGetValue(pointValue.Timestamp.UtcDateTime, out var solarModelPoint))
                 {
-                    solarModelPoint = new SolarModelPoint { Timestamp = pointValue.Timestamp.Value.UtcDateTime };
+                    solarModelPoint = new SolarModelPoint { Timestamp = pointValue.Timestamp.UtcDateTime };
                     result[solarModelPoint.Timestamp] = solarModelPoint;
                 }
 

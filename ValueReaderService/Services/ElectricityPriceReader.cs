@@ -33,13 +33,13 @@ public class ElectricityPriceReader(
         //var existingValues = pointValueStore.ReadNumericValues(device.Id, npsPriceRawPoint.Id, todayDate, todayDate.AddDays(1), true);
         var existingValues = await pointValueStoreAdapter.Get(npsPriceRawPoint.Id, todayDate, todayDate.AddDays(2), true, true);
 
-        if (existingValues?.Values == null || existingValues.Values.Any(x => x.Timestamp == null))
+        if (existingValues?.Values == null)
         {
             return null;
         }
 
-        if (existingValues.Values.Count(x => x.Timestamp!.Value.Date == today && x.Value != null) > 20
-            && (existingValues.Values.Count(x => x.Timestamp!.Value.Date == tomorrow && x.Value != null) > 20 || (timestampLocal - timestampLocal.Date) < new TimeSpan(14, 45, 0)))
+        if (existingValues.Values.Count(x => x.Timestamp.Date == today && x.Value != null) > 20
+            && (existingValues.Values.Count(x => x.Timestamp.Date == tomorrow && x.Value != null) > 20 || (timestampLocal - timestampLocal.Date) < new TimeSpan(14, 45, 0)))
         {
             return null;
         }

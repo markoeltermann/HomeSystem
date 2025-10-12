@@ -21,7 +21,7 @@ namespace PointValueStoreClient.Models
         public string StringValue { get; set; }
 #endif
         /// <summary>The timestamp property</summary>
-        public DateTimeOffset? Timestamp { get; set; }
+        public DateTimeOffset Timestamp { get; set; }
         /// <summary>The value property</summary>
         public double? Value { get; set; }
         /// <summary>
@@ -31,7 +31,7 @@ namespace PointValueStoreClient.Models
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
         public static global::PointValueStoreClient.Models.NumericValueDto CreateFromDiscriminatorValue(IParseNode parseNode)
         {
-            _ = parseNode ?? throw new ArgumentNullException(nameof(parseNode));
+            if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
             return new global::PointValueStoreClient.Models.NumericValueDto();
         }
         /// <summary>
@@ -43,7 +43,7 @@ namespace PointValueStoreClient.Models
             return new Dictionary<string, Action<IParseNode>>
             {
                 { "stringValue", n => { StringValue = n.GetStringValue(); } },
-                { "timestamp", n => { Timestamp = n.GetDateTimeOffsetValue(); } },
+                { "timestamp", n => { Timestamp = n.GetDateTimeOffsetValue() ?? throw new InvalidOperationException("Input does not match specification"); } },
                 { "value", n => { Value = n.GetDoubleValue(); } },
             };
         }
@@ -53,7 +53,7 @@ namespace PointValueStoreClient.Models
         /// <param name="writer">Serialization writer to use to serialize this model</param>
         public virtual void Serialize(ISerializationWriter writer)
         {
-            _ = writer ?? throw new ArgumentNullException(nameof(writer));
+            if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteStringValue("stringValue", StringValue);
             writer.WriteDateTimeOffsetValue("timestamp", Timestamp);
             writer.WriteDoubleValue("value", Value);

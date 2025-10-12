@@ -1,8 +1,8 @@
 {
-  "descriptionHash": "34C99BCF1310CBA6387159C6BC68801A4891C9AEA3725A88D7E1828BC7C39CBDFAE56DECA42815C6DC25BDF162D9D4B72BAB50639FACFE80CEE5C1897E8402AD",
+  "descriptionHash": "9B74DE13C480902CB9966A590CE39793E8B0BE9A59AB1B262A4863F4F3306C30CA621C45BA4A1AC3044F3F5608BA2597B6437D4284D44929FF3EAF70F619F30D",
   "descriptionLocation": "../swagger.json",
   "lockFileVersion": "1.0.0",
-  "kiotaVersion": "1.28.0",
+  "kiotaVersion": "1.29.0",
   "clientClassName": "PointValueStore",
   "typeAccessModifier": "Public",
   "clientNamespaceName": "PointValueStoreClient",

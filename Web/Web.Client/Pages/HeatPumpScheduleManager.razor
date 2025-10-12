@@ -98,12 +98,12 @@
     private async Task LoadSchedule()
     {
         var schedule = await http.GetFromJsonAsync<HeatPumpDayScheduleDto>($"api/heatPumpSchedule/{SelectedDate:yyyy-MM-dd}");
-        if (schedule != null && schedule.Hours != null && schedule.Hours.Length == 24)
+        if (schedule != null && schedule.Entries != null && schedule.Entries.Length == 24)
         {
             var hours = new HourModel[24];
             for (int i = 0; i < 24; i++)
             {
-                var hourDto = schedule.Hours[i];
+                var hourDto = schedule.Entries[i];
                 hours[i] = new HourModel
                 {
                     Hour = i,
@@ -118,11 +118,11 @@
 
     private async Task OnSaveClick()
     {
-        var scheduleDto = new HeatPumpDayScheduleDto { Hours = new HeatPumpHourlyScheduleDto[24] };
+        var scheduleDto = new HeatPumpDayScheduleDto { Entries = new HeatPumpHourlyScheduleDto[24] };
         for (int i = 0; i < 24; i++)
         {
             var hour = Hours[i];
-            scheduleDto.Hours[i] = new HeatPumpHourlyScheduleDto
+            scheduleDto.Entries[i] = new HeatPumpHourlyScheduleDto
             {
                 Hour = i,
                 HeatingOffset = hour.HeatingOffset,

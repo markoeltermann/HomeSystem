@@ -39,8 +39,8 @@
                     </div>
                 </div>
 
-                <div class="row mb-1 hoverable align-items-center justify-content-center">
-                    <div class="col-4">
+                <div class="row table-row hoverable align-items-center justify-content-center">
+                    <div class="col-2">
                         <span>Hour</span>
                     </div>
                     <div class="col-2">
@@ -49,33 +49,68 @@
                     <div class="col-2">
                         <span>Adaptive sell</span>
                     </div>
-                    <div class="col-2">
+                    <div class="col-3">
                         <span>Battery level</span>
                     </div>
-                    <div class="col-2">
+                    <div class="col-3">
                         <span>Battery sell level</span>
                     </div>
                 </div>
 
                 @foreach (var hour in Hours)
                 {
-                    <div class="row mb-1 hoverable align-items-center justify-content-center">
-                        <div class="col-4">
-                            <span>@($"{hour.Hour.ToString().PadLeft(2, '0')}:00")</span>
+                    <div class="row table-row hoverable align-items-center justify-content-center">
+                        <div class="col-2">
+                            <div class="form-check">
+                                @* <span>@($"{hour.Hour.ToString().PadLeft(2, '0')}:00")</span> *@
+                                <InputCheckbox class="form-check-input" id="@("hour" + hour.Hour)" @bind-Value=hour.IsOpened />
+                                <label class="form-check-label" for="@("hour" + hour.Hour)">@($"{hour.Hour.ToString().PadLeft(2, '0')}:00")</label>
+                            </div>
                         </div>
                         <div class="col-2 d-flex justify-content-center">
-                            <InputCheckbox @bind-Value=hour.IsGridChargeEnabled class="form-check-input" />
+                            <InputCheckbox @bind-Value=hour.IsGridChargeEnabled class="@(hour.IsGridChargeEnabledUniform ? "form-check-input" : "form-check-input opacity-50")" />
                         </div>
                         <div class="col-2 d-flex justify-content-center">
-                            <InputCheckbox @bind-Value=hour.IsAdaptiveSellEnabled class="form-check-input" />
+                            <InputCheckbox @bind-Value=hour.IsAdaptiveSellEnabled class="@(hour.IsAdaptiveSellEnabledUniform ? "form-check-input" : "form-check-input opacity-50")" />
                         </div>
-                        <div class="col-2">
-                            <InputNumber @bind-Value=hour.BatteryLevel class="form-control" />
+                        <div class="col-3 d-flex flex-row">
+                            <InputNumber @bind-Value=hour.BatteryLevel class="@(hour.IsBatteryLevelUniform ? "form-control" : "form-control opacity-50")" />
                         </div>
-                        <div class="col-2">
-                            <InputNumber @bind-Value=hour.BatterySellLevel class="form-control" />
+                        <div class="col-3">
+                            <InputNumber @bind-Value=hour.BatterySellLevel class="@(hour.IsBatterySellLevelUniform ? "form-control" : "form-control opacity-50")" />
                         </div>
                     </div>
+                    @if (hour.IsOpened && hour.Children != null)
+                    {
+                        <div class="row">
+                            <div class="col bg-info-subtle">
+                                @foreach (var minute in hour.Children)
+                                {
+                                    <div class="row table-row hoverable align-items-center justify-content-center">
+                                        <div class="col-2">
+                                            <div class="form-check">
+                                                <span>@($"{hour.Hour.ToString().PadLeft(2, '0')}:{minute.Minute.ToString().PadLeft(2, '0')}")</span>
+                                                @* <InputCheckbox class="form-check-input" id="@("hour" + hour.Hour)" @bind-Value=hour.IsOpened />
+                                        <label class="form-check-label" for="@("hour" + hour.Hour)">@($"{hour.Hour.ToString().PadLeft(2, '0')}:00")</label> *@
+                                            </div>
+                                        </div>
+                                        <div class="col-2 d-flex justify-content-center">
+                                            <InputCheckbox indeterminate="true" @bind-Value=minute.IsGridChargeEnabled class="form-check-input" />
+                                        </div>
+                                        <div class="col-2 d-flex justify-content-center">
+                                            <InputCheckbox @bind-Value=minute.IsAdaptiveSellEnabled class="form-check-input" />
+                                        </div>
+                                        <div class="col-3 d-flex flex-row">
+                                            <InputNumber @bind-Value=minute.BatteryLevel class="form-control" />
+                                        </div>
+                                        <div class="col-3">
+                                            <InputNumber @bind-Value=minute.BatterySellLevel class="form-control" />
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
                 }
 
                 <div class="row justify-content-center">
@@ -111,20 +146,33 @@
     private async Task LoadSchedule()
     {
         var schedule = await http.GetFromJsonAsync<InverterDayScheduleDto>($"api/inverterSchedule/{SelectedDate:yyyy-MM-dd}");
-        if (schedule != null && schedule.Hours != null && schedule.Hours.Length == 24)
+        if (schedule != null && schedule.Entries != null && schedule.Entries.Length == 96)
         {
             var hours = new HourModel[24];
+            var hourGroups = schedule.Entries.GroupBy(h => h.Hour).ToArray();
+            if (hourGroups.Length != 24)
+            {
+                return;
+            }
+
             for (int i = 0; i < 24; i++)
             {
-                var hourDto = schedule.Hours[i];
-                hours[i] = new HourModel
+                var hourGroup = hourGroups[i];
+                var model = new HourModel
                 {
                     Hour = i,
-                    BatteryLevel = hourDto.BatteryLevel,
-                    BatterySellLevel = hourDto.BatterySellLevel,
-                    IsGridChargeEnabled = hourDto.IsGridChargeEnabled ?? false,
-                    IsAdaptiveSellEnabled = hourDto.IsAdaptiveSellEnabled ?? false,
                 };
+                model.Children = hourGroup.Select(x => new HourModel
+                {
+                    BatteryLevel = x.BatteryLevel,
+                    BatterySellLevel = x.BatterySellLevel,
+                    IsGridChargeEnabled = x.IsGridChargeEnabled ?? false,
+                    IsAdaptiveSellEnabled = x.IsAdaptiveSellEnabled ?? false,
+                    Hour = i,
+                    Minute = x.Minute,
+                }).ToArray();
+
+                hours[i] = model;
             }
 
             Hours = hours;
@@ -133,18 +181,26 @@
 
     private async Task OnSaveClick()
     {
-        var scheduleDto = new InverterDayScheduleDto { Hours = new InverterHourlyScheduleDto[24] };
+        var scheduleDto = new InverterDayScheduleDto { Entries = new InverterScheduleDto[96] };
         for (int i = 0; i < 24; i++)
         {
             var hour = Hours[i];
-            scheduleDto.Hours[i] = new InverterHourlyScheduleDto
+
+            if (hour.Children == null || hour.Children.Length != 4)
+                return;
+
+            for (int j = 0; j < hour.Children.Length; j++)
             {
-                Hour = i,
-                BatteryLevel = hour.BatteryLevel,
-                BatterySellLevel = hour.BatterySellLevel,
-                IsGridChargeEnabled = hour.BatteryLevel.HasValue ? hour.IsGridChargeEnabled : null,
-                IsAdaptiveSellEnabled = hour.BatteryLevel.HasValue ? hour.IsAdaptiveSellEnabled : null,
-            };
+                var minute = hour.Children[j];
+                scheduleDto.Entries[i * 4 + j] = new InverterScheduleDto
+                {
+                    Hour = i * 4 + j,
+                    BatteryLevel = minute.BatteryLevel,
+                    BatterySellLevel = minute.BatterySellLevel,
+                    IsGridChargeEnabled = minute.BatteryLevel.HasValue ? minute.IsGridChargeEnabled : null,
+                    IsAdaptiveSellEnabled = minute.BatteryLevel.HasValue ? minute.IsAdaptiveSellEnabled : null,
+                };
+            }
         }
 
         var result = await http.PutAsJsonAsync($"api/inverterSchedule/{SelectedDate:yyyy-MM-dd}", scheduleDto);
@@ -169,6 +225,7 @@
             hours[i] = new HourModel
             {
                 Hour = i,
+                Children = [],
             };
         }
         Hours = hours;
@@ -189,11 +246,110 @@
 
     private class HourModel
     {
-        public int? BatteryLevel { get; set; }
-        public int? BatterySellLevel { get; set; }
-        public bool IsGridChargeEnabled { get; set; }
-        public bool IsAdaptiveSellEnabled { get; set; }
+        public HourModel() { }
+
+        public HourModel(HourModel source)
+        {
+            BatteryLevel = source.BatteryLevel;
+            BatterySellLevel = source.BatterySellLevel;
+            IsGridChargeEnabled = source.IsGridChargeEnabled;
+            IsAdaptiveSellEnabled = source.IsAdaptiveSellEnabled;
+        }
+
+        private int? _BatteryLevel;
+        public int? BatteryLevel
+        {
+            get => _BatteryLevel;
+            set
+            {
+                _BatteryLevel = value;
+                if (Children != null)
+                {
+                    foreach (var child in Children)
+                    {
+                        child.BatteryLevel = value;
+                    }
+                }
+            }
+        }
+
+        private int? _BatterySellLevel;
+        public int? BatterySellLevel
+        {
+            get => _BatterySellLevel;
+            set
+            {
+                _BatterySellLevel = value;
+                if (Children != null)
+                {
+                    foreach (var child in Children)
+                    {
+                        child.BatterySellLevel = value;
+                    }
+                }
+            }
+        }
+
+        private bool _IsGridChargeEnabled;
+        public bool IsGridChargeEnabled
+        {
+            get => _IsGridChargeEnabled;
+            set
+            {
+                _IsGridChargeEnabled = value;
+                if (Children != null)
+                {
+                    foreach (var child in Children)
+                    {
+                        child.IsGridChargeEnabled = value;
+                    }
+                }
+            }
+        }
+
+        private bool _IsAdaptiveSellEnabled;
+        public bool IsAdaptiveSellEnabled
+        {
+            get => _IsAdaptiveSellEnabled;
+            set
+            {
+                _IsAdaptiveSellEnabled = value;
+                if (Children != null)
+                {
+                    foreach (var child in Children)
+                    {
+                        child.IsAdaptiveSellEnabled = value;
+                    }
+                }
+            }
+        }
+
+        public bool IsBatteryLevelUniform => Children == null || Children.All(c => c.BatteryLevel == BatteryLevel);
+        public bool IsBatterySellLevelUniform => Children == null || Children.All(c => c.BatterySellLevel == BatterySellLevel);
+        public bool IsGridChargeEnabledUniform => Children == null || Children.All(c => c.IsGridChargeEnabled == IsGridChargeEnabled);
+        public bool IsAdaptiveSellEnabledUniform => Children == null || Children.All(c => c.IsAdaptiveSellEnabled == IsAdaptiveSellEnabled);
+
         public int Hour { get; set; }
+        public int Minute { get; set; }
+
+        public bool IsOpened { get; set; }
+
+        private HourModel[]? _Children;
+        public HourModel[]? Children
+        {
+            get => _Children; 
+            set
+            {
+                _Children = value;
+                if (value != null && value.Length > 0)
+                {
+                    _BatteryLevel = (int?)value.Select(x => x.BatteryLevel).Average();
+                    _BatterySellLevel = (int?)value.Select(x => x.BatterySellLevel).Average();
+                    _IsAdaptiveSellEnabled = value[0].IsAdaptiveSellEnabled;
+                    _IsGridChargeEnabled = value[0].IsGridChargeEnabled;
+                }
+            }
+        }
     }
 
     private Task OnPreviousDayClick(MouseEventArgs args)
