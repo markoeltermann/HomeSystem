@@ -105,15 +105,8 @@ namespace SolarmanV5Client.Values
         public partial class ValuesRequestBuilderGetQueryParameters 
         #pragma warning restore CS1591
         {
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-            [QueryParameter("a")]
-            public int?[]? A { get; set; }
-#nullable restore
-#else
             [QueryParameter("a")]
             public int?[] A { get; set; }
-#endif
         }
         /// <summary>
         /// Configuration for the request such as headers, query parameters, and middleware options.

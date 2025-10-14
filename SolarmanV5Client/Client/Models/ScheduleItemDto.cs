@@ -22,7 +22,7 @@ namespace SolarmanV5Client.Models
         /// <summary>The maxBatteryPower property</summary>
         public int? MaxBatteryPower { get; set; }
         /// <summary>The time property</summary>
-        public Time? Time { get; set; }
+        public Time Time { get; set; }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
         /// </summary>
@@ -30,7 +30,7 @@ namespace SolarmanV5Client.Models
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
         public static global::SolarmanV5Client.Models.ScheduleItemDto CreateFromDiscriminatorValue(IParseNode parseNode)
         {
-            _ = parseNode ?? throw new ArgumentNullException(nameof(parseNode));
+            if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
             return new global::SolarmanV5Client.Models.ScheduleItemDto();
         }
         /// <summary>
@@ -45,7 +45,7 @@ namespace SolarmanV5Client.Models
                 { "isGridChargeEnabled", n => { IsGridChargeEnabled = n.GetBoolValue(); } },
                 { "isGridSellEnabled", n => { IsGridSellEnabled = n.GetBoolValue(); } },
                 { "maxBatteryPower", n => { MaxBatteryPower = n.GetIntValue(); } },
-                { "time", n => { Time = n.GetTimeValue(); } },
+                { "time", n => { Time = n.GetTimeValue() ?? throw new InvalidOperationException("Input does not match specification"); } },
             };
         }
         /// <summary>
@@ -54,7 +54,7 @@ namespace SolarmanV5Client.Models
         /// <param name="writer">Serialization writer to use to serialize this model</param>
         public virtual void Serialize(ISerializationWriter writer)
         {
-            _ = writer ?? throw new ArgumentNullException(nameof(writer));
+            if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteIntValue("batteryChargeLevel", BatteryChargeLevel);
             writer.WriteBoolValue("isGridChargeEnabled", IsGridChargeEnabled);
             writer.WriteBoolValue("isGridSellEnabled", IsGridSellEnabled);

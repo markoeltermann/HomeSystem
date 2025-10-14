@@ -1,4 +1,5 @@
 ﻿using FluentAssertions;
+using SolarmanV5Client.Models;
 using ValueReaderService.Services.InverterSchedule;
 
 namespace ValueReaderServiceTests.Services.InverterSchedule;
@@ -117,6 +118,47 @@ public class InverterScheduleHelpersTests
         schedule.SchedulePoint6.Time.Hour.Should().Be(23);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(11)]
+    [InlineData(15)]
+    public void TwoPoint_15MinuteCase1(int hour)
+    {
+        List<ScheduleItemDto> changePoints = GetTwoPoints15Min();
+
+        var schedule = InverterScheduleHelpers.GetCurrentSchedule(changePoints, hour);
+        schedule.Should().NotBeNull();
+        schedule.SchedulePoint1.Time.Hour.Should().Be(0);
+        schedule.SchedulePoint2.Time.Hour.Should().Be(12);
+        schedule.SchedulePoint2.Time.Minute.Should().Be(15);
+        schedule.SchedulePoint3.Time.Hour.Should().Be(13);
+        schedule.SchedulePoint3.BatteryChargeLevel.Should().Be(schedule.SchedulePoint2.BatteryChargeLevel);
+        schedule.SchedulePoint3.IsGridChargeEnabled.Should().Be(schedule.SchedulePoint2.IsGridChargeEnabled);
+        schedule.SchedulePoint6.Time.Hour.Should().Be(16);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(11)]
+    [InlineData(15)]
+    public void TwoPoint_15MinuteCase2(int hour)
+    {
+        List<ScheduleItemDto> changePoints = GetTwoPoints15Min();
+        changePoints[^1].Time = new TimeOnly(23, 45);
+
+        var schedule = InverterScheduleHelpers.GetCurrentSchedule(changePoints, hour);
+        schedule.Should().NotBeNull();
+        schedule.SchedulePoint1.Time.Hour.Should().Be(0);
+        schedule.SchedulePoint2.Time.Hour.Should().Be(1);
+        schedule.SchedulePoint3.Time.Hour.Should().Be(2);
+        schedule.SchedulePoint4.Time.Hour.Should().Be(3);
+        schedule.SchedulePoint5.Time.Hour.Should().Be(4);
+        schedule.SchedulePoint6.Time.Hour.Should().Be(23);
+        schedule.SchedulePoint6.Time.Minute.Should().Be(45);
+    }
+
     private static List<ScheduleItemDto> GetMoreThanSixPoints()
     {
         return [
@@ -177,6 +219,24 @@ public class InverterScheduleHelpersTests
             new ScheduleItemDto
             {
                 Time = new TimeOnly(12, 0),
+                BatteryChargeLevel = 50,
+                IsGridChargeEnabled = false,
+            },
+        ];
+    }
+
+    private static List<ScheduleItemDto> GetTwoPoints15Min()
+    {
+        return [
+            new ScheduleItemDto
+            {
+                Time = new TimeOnly(0, 0),
+                BatteryChargeLevel = 100,
+                IsGridChargeEnabled = true,
+            },
+            new ScheduleItemDto
+            {
+                Time = new TimeOnly(12, 15),
                 BatteryChargeLevel = 50,
                 IsGridChargeEnabled = false,
             },

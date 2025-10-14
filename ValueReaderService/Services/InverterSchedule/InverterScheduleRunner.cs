@@ -1,5 +1,4 @@
-﻿using CommonLibrary.Helpers;
-using Domain;
+﻿using Domain;
 using Microsoft.EntityFrameworkCore;
 using PointValueStoreClient.Models;
 using SolarmanV5Client.Models;
@@ -42,12 +41,12 @@ public class InverterScheduleRunner(
 
         var timestampLocal = timestamp.ToLocalTime().AddSeconds(30);
         var date = DateOnly.FromDateTime(timestampLocal);
-        var batteryLevelValues = await pointValueStoreAdapter.Get(batteryLevelPoint.Id, date);
-        var batterySellLevelValues = await pointValueStoreAdapter.Get(batterySellLevelPoint.Id, date);
-        var gridChargeEnableValues = await pointValueStoreAdapter.Get(gridChargeEnablePoint.Id, date);
-        var electricityPrices = await pointValueStoreAdapter.Get(electricityPricePoint.Id, date);
-        var actualBatteryLevelValues = await pointValueStoreAdapter.Get(actualBatteryLevelPoint.Id, date);
-        var adaptiveSellEnableValues = await pointValueStoreAdapter.Get(adaptiveSellEnablePoint.Id, date);
+        var batteryLevelValues = await pointValueStoreAdapter.Get(batteryLevelPoint.Id, date, fiveMinResolution: true);
+        var batterySellLevelValues = await pointValueStoreAdapter.Get(batterySellLevelPoint.Id, date, fiveMinResolution: true);
+        var gridChargeEnableValues = await pointValueStoreAdapter.Get(gridChargeEnablePoint.Id, date, fiveMinResolution: true);
+        var electricityPrices = await pointValueStoreAdapter.Get(electricityPricePoint.Id, date, fiveMinResolution: true);
+        var actualBatteryLevelValues = await pointValueStoreAdapter.Get(actualBatteryLevelPoint.Id, date, fiveMinResolution: true);
+        var adaptiveSellEnableValues = await pointValueStoreAdapter.Get(adaptiveSellEnablePoint.Id, date, fiveMinResolution: true);
 
         var currentActualBatteryLevel = GetCurrentValue(timestampLocal, actualBatteryLevelValues);
         var currentBatterySellLevel = GetCurrentValue(timestampLocal, batterySellLevelValues);
@@ -134,7 +133,7 @@ public class InverterScheduleRunner(
 
     private static bool ValidateValues([NotNullWhen(true)] ResponseValueContainerDto? batteryLevelValues)
     {
-        if (batteryLevelValues != null && batteryLevelValues.Values != null && batteryLevelValues.Values.Count == 24 * 6 + 1)
+        if (batteryLevelValues != null && batteryLevelValues.Values != null && batteryLevelValues.Values.Count == 24 * 12 + 1)
         {
             return batteryLevelValues.Values[0].Value != null;
         }
@@ -154,16 +153,16 @@ public class InverterScheduleRunner(
     private static List<ScheduleItemDto>? GetChangePoints(ResponseValueContainerDto chargeValues, ResponseValueContainerDto gridValues)
     {
         var hourlyPoints = new List<ScheduleItemDto>();
-        for (int i = 0; i < 24; i++)
+        for (int i = 0; i < 96; i++)
         {
-            var chargeValue = chargeValues.Values![i * 6];
-            var gridValue = gridValues.Values![i * 6];
+            var chargeValue = chargeValues.Values![i * 3];
+            var gridValue = gridValues.Values![i * 3];
 
             if (chargeValue.Value.HasValue)
             {
                 var hourlyPoint = new ScheduleItemDto
                 {
-                    Time = new TimeOnly(i, 0),
+                    Time = new TimeOnly(i / 4, (i % 4) * 15),
                     MaxBatteryPower = 10000,
                     BatteryChargeLevel = TruncateBatteryLevel((int)chargeValue.Value.Value),
                     IsGridChargeEnabled = (gridValue.Value ?? 0) > 0.0
@@ -171,7 +170,7 @@ public class InverterScheduleRunner(
                 hourlyPoints.Add(hourlyPoint);
             }
         }
-        if (hourlyPoints.Count == 0 || hourlyPoints[0].Time!.Value.Hour != 0)
+        if (hourlyPoints.Count == 0 || hourlyPoints[0].Time!.Hour != 0)
             return null;
 
         var changePoints = new List<ScheduleItemDto> { hourlyPoints[0] };
@@ -187,15 +186,6 @@ public class InverterScheduleRunner(
         }
 
         return changePoints;
-    }
-
-    private static string? GetPointValueRequestUrl(string baseUrl, int pointId, DateOnly from, DateOnly upTo)
-    {
-        var url = UrlHelpers.GetUrl(baseUrl, $"points/{pointId}/values",
-            [KeyValuePair.Create("from", (string?)from.ToString("yyyy-MM-dd")),
-            KeyValuePair.Create("upTo", (string?)upTo.ToString("yyyy-MM-dd"))]);
-
-        return url;
     }
 
     private class ValueContainerDto
