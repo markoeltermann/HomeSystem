@@ -33,15 +33,17 @@ public class HeatPumpScheduleRunner(
             throw new InvalidOperationException("Heat pump device address is invalid");
 
         var heatingOffset = new DeviceValue(-10, 10);
+        var heatingDegreeMinutes = new DeviceValue(-300, 300);
         var hotWaterMode = new DeviceValue(0, 2);
-        var activeCoolingStart = new DeviceValue(10, 300);
+        //var activeCoolingStart = new DeviceValue(10, 300);
 
         var actualHeatingOffsetPoint = heatPumpDevice.DevicePoints.FirstOrDefault(x => x.Type == "heating-offset");
         var actualHotWaterModePoint = heatPumpDevice.DevicePoints.FirstOrDefault(x => x.Type == "hot-water-mode");
-        var activeCoolingStartPoint = heatPumpDevice.DevicePoints.FirstOrDefault(x => x.Type == "active-cooling-start");
-        var calculatedCoolingSupplyTemperaturePoint = heatPumpDevice.DevicePoints.FirstOrDefault(x => x.Type == "calculated-cooling-supply-temperature");
+        var heatingDegreeMinutesPoint = heatPumpDevice.DevicePoints.FirstOrDefault(x => x.Type == "heating-degree-minutes");
+        //var activeCoolingStartPoint = heatPumpDevice.DevicePoints.FirstOrDefault(x => x.Type == "active-cooling-start");
+        //var calculatedCoolingSupplyTemperaturePoint = heatPumpDevice.DevicePoints.FirstOrDefault(x => x.Type == "calculated-cooling-supply-temperature");
 
-        if (actualHeatingOffsetPoint != null && actualHotWaterModePoint != null)
+        if (actualHeatingOffsetPoint != null && actualHotWaterModePoint != null && heatingDegreeMinutesPoint != null)
         {
             var heatingOffsetPoint = devicePoints.FirstOrDefault(x => x.Address == "heating-offset");
             var hotWaterModePoint = devicePoints.FirstOrDefault(x => x.Address == "hot-water-mode");
@@ -49,6 +51,7 @@ public class HeatPumpScheduleRunner(
             {
                 var actualHeatingOffsetValues = await pointValueStoreAdapter.Get(actualHeatingOffsetPoint.Id, date);
                 var actualHotWaterModeValues = await pointValueStoreAdapter.Get(actualHotWaterModePoint.Id, date);
+                var heatingDegreeMinutesValues = await pointValueStoreAdapter.Get(heatingDegreeMinutesPoint.Id, date);
                 var heatingOffsetValues = await pointValueStoreAdapter.Get(heatingOffsetPoint.Id, date);
                 var hotWaterModeValues = await pointValueStoreAdapter.Get(hotWaterModePoint.Id, date);
 
@@ -57,39 +60,45 @@ public class HeatPumpScheduleRunner(
 
                 hotWaterMode.CurrentValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, actualHotWaterModeValues);
                 hotWaterMode.NewValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, hotWaterModeValues);
-            }
-        }
 
-        if (activeCoolingStartPoint != null && calculatedCoolingSupplyTemperaturePoint != null)
-        {
-            var coolingControllerDevice = await dbContext.Devices.AsNoTrackingWithIdentityResolution()
-                .Include(x => x.DevicePoints)
-                .FirstOrDefaultAsync(x => x.SubType == "cooling-controller")
-                    ?? throw new InvalidOperationException("Cooling controller device not found");
-
-            var coolingTankTemperatureLowerPoint = coolingControllerDevice.DevicePoints.FirstOrDefault(x => x.Type == "cooling-tank-temperature-lower");
-            if (coolingTankTemperatureLowerPoint != null)
-            {
-                var coolingTankTemperatureLowerValues = await pointValueStoreAdapter.Get(coolingTankTemperatureLowerPoint.Id, date, fiveMinResolution: true);
-                var coolingSupplyTemperatureValues = await pointValueStoreAdapter.Get(calculatedCoolingSupplyTemperaturePoint.Id, date, fiveMinResolution: true);
-                var activeCoolingStartValues = await pointValueStoreAdapter.Get(activeCoolingStartPoint.Id, date, fiveMinResolution: true);
-
-                var coolingTankTemperatureLower = PointValueStoreAdapter.GetCurrentValue(timestampLocal, coolingTankTemperatureLowerValues);
-                var coolingSupplyTemperature = PointValueStoreAdapter.GetCurrentValue(timestampLocal, coolingSupplyTemperatureValues);
-                var actualActiveCoolingStart = PointValueStoreAdapter.GetCurrentValue(timestampLocal, activeCoolingStartValues);
-
-                if (coolingTankTemperatureLower.HasValue && coolingSupplyTemperature.HasValue && actualActiveCoolingStart.HasValue)
+                if (heatingOffset.HasChanged && heatingOffset.NewValue.Value >= 0 && heatingOffset.CurrentValue.Value < 0)
                 {
-                    //var coolingStartTemperatureThreshold = coolingSupplyTemperature.Value + 5;
-
-                    //activeCoolingStart.CurrentValue = actualActiveCoolingStart;
-                    //activeCoolingStart.NewValue = coolingTankTemperatureLower < coolingStartTemperatureThreshold ? 300 : 30;
+                    heatingDegreeMinutes.CurrentValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, heatingDegreeMinutesValues);
+                    heatingDegreeMinutes.NewValue = 0;
                 }
             }
-
         }
 
-        if (!heatingOffset.HasChanged && !hotWaterMode.HasChanged && !activeCoolingStart.HasChanged)
+        //if (activeCoolingStartPoint != null && calculatedCoolingSupplyTemperaturePoint != null)
+        //{
+        //    var coolingControllerDevice = await dbContext.Devices.AsNoTrackingWithIdentityResolution()
+        //        .Include(x => x.DevicePoints)
+        //        .FirstOrDefaultAsync(x => x.SubType == "cooling-controller")
+        //            ?? throw new InvalidOperationException("Cooling controller device not found");
+
+        //    var coolingTankTemperatureLowerPoint = coolingControllerDevice.DevicePoints.FirstOrDefault(x => x.Type == "cooling-tank-temperature-lower");
+        //    if (coolingTankTemperatureLowerPoint != null)
+        //    {
+        //        var coolingTankTemperatureLowerValues = await pointValueStoreAdapter.Get(coolingTankTemperatureLowerPoint.Id, date, fiveMinResolution: true);
+        //        var coolingSupplyTemperatureValues = await pointValueStoreAdapter.Get(calculatedCoolingSupplyTemperaturePoint.Id, date, fiveMinResolution: true);
+        //        var activeCoolingStartValues = await pointValueStoreAdapter.Get(activeCoolingStartPoint.Id, date, fiveMinResolution: true);
+
+        //        var coolingTankTemperatureLower = PointValueStoreAdapter.GetCurrentValue(timestampLocal, coolingTankTemperatureLowerValues);
+        //        var coolingSupplyTemperature = PointValueStoreAdapter.GetCurrentValue(timestampLocal, coolingSupplyTemperatureValues);
+        //        var actualActiveCoolingStart = PointValueStoreAdapter.GetCurrentValue(timestampLocal, activeCoolingStartValues);
+
+        //        if (coolingTankTemperatureLower.HasValue && coolingSupplyTemperature.HasValue && actualActiveCoolingStart.HasValue)
+        //        {
+        //            //var coolingStartTemperatureThreshold = coolingSupplyTemperature.Value + 5;
+
+        //            //activeCoolingStart.CurrentValue = actualActiveCoolingStart;
+        //            //activeCoolingStart.NewValue = coolingTankTemperatureLower < coolingStartTemperatureThreshold ? 300 : 30;
+        //        }
+        //    }
+
+        //}
+
+        if (!heatingOffset.HasChanged && !hotWaterMode.HasChanged)
         {
             return null;
         }
@@ -107,9 +116,9 @@ public class HeatPumpScheduleRunner(
         {
             body.AdditionalData.Add(actualHotWaterModePoint!.Address, (int)hotWaterMode.NewValue.Value);
         }
-        if (activeCoolingStart.HasChanged)
+        if (heatingDegreeMinutes.HasChanged)
         {
-            body.AdditionalData.Add(activeCoolingStartPoint!.Address, (int)activeCoolingStart.NewValue.Value);
+            body.AdditionalData.Add(heatingDegreeMinutesPoint!.Address, (int)heatingDegreeMinutes.NewValue.Value);
         }
 
         await client.V2.Devices[address.DeviceId].Points.PatchAsync(body);
