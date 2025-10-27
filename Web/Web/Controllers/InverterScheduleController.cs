@@ -85,24 +85,36 @@ public class InverterScheduleController : ControllerBase
             return NotFound("Schedule points have not been configured");
         }
 
-        var gridChargeEnableValues = new ValueContainerDto { Values = new NumericValueDto[24 * 12] };
-        var batteryLevelValues = new ValueContainerDto { Values = new NumericValueDto[24 * 12] };
-        var batterySellLevelValues = new ValueContainerDto { Values = new NumericValueDto[24 * 12] };
-        var adaptiveSellEnableValues = new ValueContainerDto { Values = new NumericValueDto[24 * 12] };
+        var hoursPerDate = (int)(date.ToDateTime(new TimeOnly(), DateTimeKind.Local).AddDays(1).ToUniversalTime()
+            - date.ToDateTime(new TimeOnly(), DateTimeKind.Local).ToUniversalTime()).TotalHours;
+
+        var gridChargeEnableValues = new ValueContainerDto { Values = new NumericValueDto[hoursPerDate * 12] };
+        var batteryLevelValues = new ValueContainerDto { Values = new NumericValueDto[hoursPerDate * 12] };
+        var batterySellLevelValues = new ValueContainerDto { Values = new NumericValueDto[hoursPerDate * 12] };
+        var adaptiveSellEnableValues = new ValueContainerDto { Values = new NumericValueDto[hoursPerDate * 12] };
 
         var time0 = date.ToDateTime(new TimeOnly(), DateTimeKind.Local).ToUniversalTime();
+        var entries = daySchedule.Entries;
+        if (hoursPerDate == 25)
+        {
+            entries = [.. entries[0..(4 * 4)], .. entries[(3 * 4)..(4 * 4)], .. entries[(4 * 4)..]];
+        }
+        else if (hoursPerDate == 23)
+        {
+            entries = [.. entries[0..(3 * 4)], .. entries[(4 * 4)..]];
+        }
 
-        for (int i = 0; i < 96; i++)
+        for (int i = 0; i < hoursPerDate * 4; i++)
         {
             var time = time0.AddMinutes(i * 15);
-            var hourSchedule = daySchedule.Entries[i];
+            var hourSchedule = entries[i];
             if (i == 0)
             {
                 hourSchedule.BatterySellLevel ??= 100;
             }
             else
             {
-                var prevHourSchedule = daySchedule.Entries[i - 1];
+                var prevHourSchedule = entries[i - 1];
                 hourSchedule.BatterySellLevel ??= prevHourSchedule.BatterySellLevel;
                 if (hourSchedule.BatteryLevel == null)
                 {

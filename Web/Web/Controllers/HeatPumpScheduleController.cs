@@ -59,15 +59,27 @@ public class HeatPumpScheduleController(HomeSystemContext context, HttpClient ht
             return NotFound("Schedule points have not been configured");
         }
 
-        var heatingOffsetValues = new ValueContainerDto { Values = new NumericValueDto[24 * 6] };
-        var hotWaterModeValues = new ValueContainerDto { Values = new NumericValueDto[24 * 6] };
+        var hoursPerDate = (int)(date.ToDateTime(new TimeOnly(), DateTimeKind.Local).AddDays(1).ToUniversalTime()
+            - date.ToDateTime(new TimeOnly(), DateTimeKind.Local).ToUniversalTime()).TotalHours;
+
+        var heatingOffsetValues = new ValueContainerDto { Values = new NumericValueDto[hoursPerDate * 6] };
+        var hotWaterModeValues = new ValueContainerDto { Values = new NumericValueDto[hoursPerDate * 6] };
 
         var time0 = date.ToDateTime(new TimeOnly(), DateTimeKind.Local).ToUniversalTime();
+        var entries = daySchedule.Entries;
+        if (hoursPerDate == 25)
+        {
+            entries = [.. entries[0..4], entries[3], .. entries[4..]];
+        }
+        else if (hoursPerDate == 23)
+        {
+            entries = [.. entries[0..3], .. entries[4..]];
+        }
 
-        for (int i = 0; i < 24; i++)
+        for (int i = 0; i < hoursPerDate; i++)
         {
             var time = time0.AddHours(i);
-            var hourSchedule = daySchedule.Entries[i];
+            var hourSchedule = entries[i];
             if (i == 0)
             {
                 hourSchedule.HeatingOffset = hourSchedule.HeatingOffset?.Truncate(-10, 10) ?? 0;
@@ -75,7 +87,7 @@ public class HeatPumpScheduleController(HomeSystemContext context, HttpClient ht
             }
             else
             {
-                var prevHourSchedule = daySchedule.Entries[i - 1];
+                var prevHourSchedule = entries[i - 1];
                 hourSchedule.HeatingOffset = hourSchedule.HeatingOffset?.Truncate(-10, 10) ?? prevHourSchedule.HeatingOffset;
                 hourSchedule.HotWaterMode = hourSchedule.HotWaterMode?.Truncate(0, 2) ?? prevHourSchedule.HotWaterMode;
             }
