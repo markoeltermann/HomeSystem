@@ -299,7 +299,7 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
     {
         if (deviceType == "electricity_price")
         {
-            return new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc).AddHours(1);
+            return new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc).AddMinutes(15);
         }
         else if (deviceType == "solar_model")
         {

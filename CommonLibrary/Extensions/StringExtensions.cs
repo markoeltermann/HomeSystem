@@ -3,7 +3,7 @@
 namespace CommonLibrary.Extensions;
 public static class StringExtensions
 {
-    public static string Capitalise(this string? s)
+    public static string? Capitalise(this string? s)
     {
         if (string.IsNullOrEmpty(s) || char.IsUpper(s[0])) return s;
 

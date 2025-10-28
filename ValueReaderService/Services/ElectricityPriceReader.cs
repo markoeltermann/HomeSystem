@@ -1,8 +1,10 @@
 ﻿using CommonLibrary.Extensions;
 using Domain;
 using Microsoft.AspNetCore.WebUtilities;
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using System.Xml.Serialization;
 
 namespace ValueReaderService.Services;
 
@@ -10,7 +12,8 @@ public class ElectricityPriceReader(
     ILogger<ElectricityPriceReader> logger,
     PointValueStoreAdapter pointValueStoreAdapter,
     IHttpClientFactory httpClientFactory,
-    IConfiguration configuration) : DeviceReader(logger)
+    IConfiguration configuration,
+    ConfigModel configModel) : DeviceReader(logger)
 {
     public override bool StorePointsWithReplace => true;
 
@@ -33,40 +36,57 @@ public class ElectricityPriceReader(
         //var existingValues = pointValueStore.ReadNumericValues(device.Id, npsPriceRawPoint.Id, todayDate, todayDate.AddDays(1), true);
         var existingValues = await pointValueStoreAdapter.Get(npsPriceRawPoint.Id, todayDate, todayDate.AddDays(2), true, true);
 
-        if (existingValues?.Values == null)
-        {
-            return null;
-        }
-
-        if (existingValues.Values.Count(x => x.Timestamp.Date == today && x.Value != null) > 20
-            && (existingValues.Values.Count(x => x.Timestamp.Date == tomorrow && x.Value != null) > 20 || (timestampLocal - timestampLocal.Date) < new TimeSpan(14, 45, 0)))
+        if (existingValues.Values!.Count(x => x.Timestamp.Date == today && x.Value != null) > 20
+            && (existingValues.Values!.Count(x => x.Timestamp.Date == tomorrow && x.Value != null) > 20 || (timestampLocal - timestampLocal.Date) < new TimeSpan(14, 15, 0)))
         {
             return null;
         }
 
         using var httpClient = httpClientFactory.CreateClient(nameof(ElectricityPriceReader));
 
-        var url = "https://dashboard.elering.ee/api/nps/price";
-        url = QueryHelpers.AddQueryString(url, [KeyValuePair.Create("start", (string?)today.ToUniversalTime().ToString("O")),
+        var eleringUrl = "https://dashboard.elering.ee/api/nps/price";
+        eleringUrl = QueryHelpers.AddQueryString(eleringUrl, [KeyValuePair.Create("start", (string?)today.ToUniversalTime().ToString("O")),
             KeyValuePair.Create("end", (string?)tomorrow.AddDays(2).ToUniversalTime().ToString("O"))]);
 
-        var npsResponse = await httpClient.GetFromJsonAsync<NpsPriceResponse?>(url);
+        var npsResponse = await httpClient.GetFromJsonAsync<NpsPriceResponse?>(eleringUrl);
         if (npsResponse == null || npsResponse.Success != true || npsResponse.Data == null || npsResponse.Data.EE == null)
         {
             return null;
         }
 
-        var result = new List<PointValue>();
         var validPricePoints = npsResponse.Data.EE.Where(x => x.UnixTimestamp.HasValue && x.Price.HasValue)
-            .Select(x => (DateTimeOffset.FromUnixTimeSeconds(x.UnixTimestamp!.Value).UtcDateTime, x))
             .ToArray();
 
-        foreach (var ((itemTimestamp, item), (nextTimestamp, next)) in validPricePoints.Zip(validPricePoints.Cast<(DateTime, NpsPrice?)>().Skip(1).Append((default, null))))
+        if (validPricePoints.Count(x => x.Timestamp > tomorrow) < 20)
         {
-            var npsTimestamp = new DateTime(itemTimestamp.Year, itemTimestamp.Month, itemTimestamp.Day, itemTimestamp.Hour, itemTimestamp.Minute / 15 * 15, 0, DateTimeKind.Utc);
+            var entsoeUrl = "https://web-api.tp.entsoe.eu/api";
+            entsoeUrl = QueryHelpers.AddQueryString(entsoeUrl, [
+                Q("documentType", "A44"),
+                Q("in_Domain", "10Y1001A1001A39I"),
+                Q("out_Domain", "10Y1001A1001A39I"),
+                Q("periodStart", today.ToUniversalTime().ToString("yyyyMMddHHmm")),
+                Q("periodEnd", today.ToUniversalTime().AddHours(49).ToString("yyyyMMddHHmm")),
+                Q("securityToken", configModel.EntsoeSecurityToken())
+                ]);
+
+            var entsoeRawResponse = await httpClient.GetStringAsync(entsoeUrl);
+            var entsoeResponse = DeserializeEntsoeResponse(entsoeRawResponse);
+
+            var entsoePrices = ConvertEntsoeResponse(entsoeResponse);
+            if (entsoePrices != null)
+            {
+                validPricePoints = entsoePrices;
+            }
+        }
+
+        var result = new List<PointValue>();
+
+        foreach (var (item, next) in validPricePoints.Zip(validPricePoints.Skip(1).Append(null)))
+        {
+            var npsTimestamp = new DateTime(item.Timestamp.Year, item.Timestamp.Month, item.Timestamp.Day, item.Timestamp.Hour, item.Timestamp.Minute / 15 * 15, 0, DateTimeKind.Utc);
             var value = item.Price!.Value / 1000m;
 
-            var numOfPointsToGenerate = npsTimestamp.Minute == 0 && (next == null || nextTimestamp.Minute == 0) ? 12 : 3;
+            var numOfPointsToGenerate = npsTimestamp.Minute == 0 && (next == null || next.Timestamp.Minute == 0) ? 12 : 3;
 
             for (int i = 0; i < numOfPointsToGenerate; i++)
             {
@@ -83,6 +103,98 @@ public class ElectricityPriceReader(
 
         return result;
     }
+
+    private static NpsPrice[]? ConvertEntsoeResponse(PublicationMarketDocument? entsoeResponse)
+    {
+        if (entsoeResponse?.TimeSeries == null)
+            return null;
+
+        var result = new List<NpsPrice>();
+
+        var formats = new[] { "yyyy-MM-dd'T'HH:mm'Z'", "yyyy-MM-dd'T'HH:mm:ss'Z'", "o" };
+
+        foreach (var ts in entsoeResponse.TimeSeries)
+        {
+            var period = ts?.Period;
+            if (period?.TimeInterval == null || period.Points == null || period.TimeInterval.Start.IsNullOrEmpty())
+                continue;
+
+            if (!DateTime.TryParseExact(
+                period.TimeInterval.Start,
+                formats,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out var startUtc))
+            {
+                continue;
+            }
+
+            if (period.Points == null || period.Points.Count > 24 * 4)
+                continue;
+
+            var points = period.Points.OrderBy(x => x.Position).ToList();
+            if (points[0].Position != 1)
+                continue;
+
+            Point? lastPoint = null;
+
+            foreach (var pt in points)
+            {
+                if (lastPoint != null && pt.Position != lastPoint.Position + 1)
+                {
+                    for (int missingPos = lastPoint.Position + 1; missingPos < pt.Position; missingPos++)
+                    {
+                        var missingTimestamp = startUtc.AddMinutes(15 * (missingPos - 1));
+                        var missingNps = new NpsPrice
+                        {
+                            Timestamp = missingTimestamp,
+                            Price = lastPoint.PriceAmount
+                        };
+                        result.Add(missingNps);
+                    }
+                }
+
+                var timestamp = startUtc.AddMinutes(15 * (pt.Position - 1));
+
+                var nps = new NpsPrice
+                {
+                    Timestamp = timestamp,
+                    Price = pt.PriceAmount
+                };
+
+                lastPoint = pt;
+
+                result.Add(nps);
+            }
+
+            if (points[^1].Position < 24 * 4)
+            {
+                for (int missingPos = points[^1].Position + 1; missingPos <= 24 * 4; missingPos++)
+                {
+                    var missingTimestamp = startUtc.AddMinutes(15 * (missingPos - 1));
+                    var missingNps = new NpsPrice
+                    {
+                        Timestamp = missingTimestamp,
+                        Price = points[^1].PriceAmount
+                    };
+                    result.Add(missingNps);
+                }
+            }
+        }
+
+        return [.. result];
+    }
+
+    private static PublicationMarketDocument? DeserializeEntsoeResponse(string xml)
+    {
+        if (string.IsNullOrWhiteSpace(xml)) return null;
+
+        var serializer = new XmlSerializer(typeof(PublicationMarketDocument));
+        using var reader = new StringReader(xml);
+        return serializer.Deserialize(reader) as PublicationMarketDocument;
+    }
+
+    private static KeyValuePair<string, string?> Q(string key, string? value) => new(key, value);
 
     private static decimal GetVat(IConfiguration configuration)
     {
@@ -161,8 +273,30 @@ public class ElectricityPriceReader(
 
     private class NpsPrice
     {
+        private DateTime? timestamp;
+
         [JsonPropertyName("timestamp")]
         public long? UnixTimestamp { get; set; }
+
+        [JsonIgnore]
+        public DateTime Timestamp
+        {
+            get
+            {
+                if (timestamp.HasValue)
+                {
+                    return timestamp.Value;
+                }
+                if (UnixTimestamp.HasValue)
+                {
+                    timestamp = DateTimeOffset.FromUnixTimeSeconds(UnixTimestamp.Value).UtcDateTime;
+                    return timestamp.Value;
+                }
+
+                return default;
+            }
+            set => timestamp = value;
+        }
 
         [JsonPropertyName("price")]
         public decimal? Price { get; set; }

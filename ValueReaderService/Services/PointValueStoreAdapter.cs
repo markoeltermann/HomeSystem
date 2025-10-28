@@ -29,9 +29,21 @@ public class PointValueStoreAdapter
             x.QueryParameters.Resolution = fiveMinResolution ? 5 : 10;
             x.QueryParameters.Utc = utc;
         });
-        var dayCount = dateUpTo == null ? 1 : dateUpTo.Value.DayNumber - date.DayNumber + 1;
+
+        int hourCount;
+        if (utc)
+        {
+            hourCount = (int)((dateUpTo ?? date).ToDateTime(new TimeOnly(), DateTimeKind.Local).AddDays(1).ToUniversalTime()
+                - date.ToDateTime(new TimeOnly(), DateTimeKind.Local).ToUniversalTime()).TotalHours;
+        }
+        else
+        {
+            var dayCount = dateUpTo == null ? 1 : dateUpTo.Value.DayNumber - date.DayNumber + 1;
+            hourCount = dayCount * 24;
+        }
+
         var valuesPerHour = fiveMinResolution ? 12 : 6;
-        if (result?.Values == null || result.Values.Count != 24 * valuesPerHour * dayCount + 1)
+        if (result?.Values == null || result.Values.Count != hourCount * valuesPerHour + 1)
             throw new InvalidOperationException("Point value store did not return expected response.");
 
         return result;

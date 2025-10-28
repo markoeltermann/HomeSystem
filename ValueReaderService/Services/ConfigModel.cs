@@ -13,6 +13,7 @@ public class ConfigModel(IConfiguration configuration)
     public string WeatherForecastContactEmail() => GetString("WeatherForecastContactEmail");
     public string PointValueStoreConnectorUrl() => GetString("PointValueStoreConnectorUrl");
     public string ModbusConnectorUrl() => GetString("ModbusConnectorUrl");
+    public string EntsoeSecurityToken() => GetString("EntsoeSecurityToken");
 
     private decimal GetDecimal(string key)
     {
