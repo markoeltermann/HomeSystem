@@ -37,7 +37,7 @@ public class ElectricityPriceReader(
         var existingValues = await pointValueStoreAdapter.Get(npsPriceRawPoint.Id, todayDate, todayDate.AddDays(2), true, true);
 
         if (existingValues.Values!.Count(x => x.Timestamp.Date == today && x.Value != null) > 20
-            && (existingValues.Values!.Count(x => x.Timestamp.Date == tomorrow && x.Value != null) > 20 || (timestampLocal - timestampLocal.Date) < new TimeSpan(14, 15, 0)))
+            && (existingValues.Values!.Count(x => x.Timestamp.Date == tomorrow && x.Value != null) > 20 || (timestampLocal - timestampLocal.Date) < new TimeSpan(14, 12, 0)))
         {
             return null;
         }
