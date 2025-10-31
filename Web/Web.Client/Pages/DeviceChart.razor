@@ -367,7 +367,7 @@
             Plot.Axes.ContinuousAutoscaleAction = (r) => throw new Exception();
 
             Plot.Axes.DateTimeTicksBottom();
-            
+
             Plot.Axes.Top.FrameLineStyle.Color = axisColor;
             Plot.Axes.Bottom.FrameLineStyle.Color = axisColor;
             Plot.Axes.Bottom.MajorTickStyle.Color = axisColor;
@@ -590,7 +590,7 @@
                 }
             }
 
-            var r = Math.Pow(10, Math.Round(Math.Log10(limits.VerticalSpan)) - 1);
+            var r = Math.Pow(10, Round(Math.Log10(limits.VerticalSpan), 0.75) - 1);
 
             var minY = (int)Math.Floor(limits.Bottom / r);
             var unit = yAxisUnits.GetValueOrDefault(yAxis);
@@ -613,15 +613,16 @@
 
             if (delta != (maxY - minY))
             {
-                if ((delta % 2) == 0)
+                var deltaChange = delta - (maxY - minY);
+                if ((deltaChange % 2) == 0)
                 {
-                    minY -= delta / 2;
-                    maxY += delta / 2;
+                    minY -= deltaChange / 2;
+                    maxY += deltaChange / 2;
                 }
                 else
                 {
-                    minY -= delta / 2;
-                    maxY += delta / 2 + 1;
+                    minY -= deltaChange / 2;
+                    maxY += deltaChange / 2 + 1;
                 }
             }
 
@@ -636,7 +637,26 @@
 
             return newLimits;
         }
+
+        private double Round(double d, double midpoint)
+        {
+            if (d >= 0)
+            {
+                if (d - (int)d < midpoint)
+                    return Math.Floor(d);
+                else
+                    return Math.Ceiling(d);
+            }
+            else
+            {
+                if ((int)d - d < midpoint)
+                    return Math.Ceiling(d);
+                else
+                    return Math.Floor(d);
+            }
+        }
     }
+
 
     // public class Wrapping : ILegendLayout
     // {
