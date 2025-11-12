@@ -30,7 +30,8 @@ Timer.set(10000, true, function () {
         Shelly.call(
             "HTTP.GET", {
                 url: "http://sinilille:5100/values?a=" + getValues(addresses).join('&a='),
-                ssl_ca: "*"
+                ssl_ca: "*",
+                timeout: 2
             },
             processStep
         );
@@ -40,11 +41,15 @@ Timer.set(10000, true, function () {
 });
 
 function processStep(httpResult) {
-    if (!httpResult || httpResult.code !== 200) {
-        turnOff('ventilation api returned failure code ' + httpResult.code);
-        return;
-    }
     try {
+        if (!httpResult) {
+            turnOff('ventilation api request failed');
+            return;
+        }
+        if (httpResult.code !== 200) {
+            turnOff('ventilation api returned error code: ' + httpResult.code);
+            return;
+        }
         const dict = {};
         const body = JSON.parse(httpResult.body);
         for (const element of body) {
@@ -60,11 +65,17 @@ function processStep(httpResult) {
             return;
         }
         
-        const setPoint = getSetpoint(dict);
+        var setPoint = getSetpoint(dict);
         const currentTemp = dict[addresses.supplyTemperature];
         if (!setPoint || !currentTemp) {
             turnOff('setpoint or current temp missing');
             return;
+        }
+
+        if (isCooling) {
+            setPoint += 1;
+        } else {
+            setPoint -= 1;
         }
 
         var delta = currentTemp - setPoint;
@@ -117,7 +128,7 @@ function processStep(httpResult) {
         });
 
     } catch (e) {
-        turnOff('error occurred' + e);
+        turnOff('error occurred ' + e);
     }
 }
 
@@ -140,11 +151,15 @@ function getMeanDelta(n, withDiffs) {
 }
 
 function turnOff(reason) {
-    print("VALVE: Turing off. Reason: " + reason);
-    isProcessing = false;
-    deltas = [];
-    current = 0;
-    Shelly.call('Light.Set', { id: 0, on: false, brightness: 0 });
+    try {
+        isProcessing = false;
+        deltas = [];
+        current = 0;
+        print("VALVE: Turning off. Reason: " + reason);
+        Shelly.call('Light.Set', { id: 0, on: false, brightness: 0 });
+    } catch (e) {
+
+    }
 }
 
 function getSetpoint(dict) {
