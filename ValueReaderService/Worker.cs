@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SharedServices;
 using System.Collections.Concurrent;
 using ValueReaderService.Services;
+using ValueReaderService.Services.AirobotThermostat;
 using ValueReaderService.Services.ChineseRoomController;
 using ValueReaderService.Services.InverterSchedule;
 using ValueReaderService.Services.SolarModel;

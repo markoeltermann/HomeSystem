@@ -3,7 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
-namespace ValueReaderService.Services;
+namespace ValueReaderService.Services.AirobotThermostat;
 
 public class AirobotThermostatReader(
     ILogger<DeviceReader> logger,
@@ -13,30 +13,9 @@ public class AirobotThermostatReader(
 {
     protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
-        var authenticationId = configuration["AuthenticationId"];
-        var authenticationSecret = configuration["AuthenticationSecret"];
-        if (string.IsNullOrEmpty(authenticationId) || string.IsNullOrEmpty(authenticationSecret))
-            return null;
+        using var httpClient = GetHttpClient();
 
-        if (device.Address is null)
-            return null;
-
-        var address = JsonSerializer.Deserialize<DeviceAddress>(device.Address);
-        if (address?.IP is null)
-            return null;
-
-        var baseUrl = $"http://{address.IP}";
-        if (address.Port is not null)
-            baseUrl += ":" + address.Port;
-
-        var statusesUrl = baseUrl + "/api/thermostat/getStatuses";
-        var settingsUrl = baseUrl + "/api/thermostat/getSettings";
-
-        using var httpClient = httpClientFactory.CreateClient(nameof(AirobotThermostatReader));
-
-        var authenticationString = $"{authenticationId}:{authenticationSecret}";
-        var base64EncodedAuthenticationString = Convert.ToBase64String(Encoding.ASCII.GetBytes(authenticationString));
-        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", base64EncodedAuthenticationString);
+        var (statusesUrl, settingsUrl) = GetUrls(device, true);
 
         var jDocStatuses = await GetJDoc(statusesUrl, httpClient);
         var jDocSettings = await GetJDoc(settingsUrl, httpClient);
@@ -60,6 +39,58 @@ public class AirobotThermostatReader(
         }
 
         return result;
+    }
+
+    public async Task WriteMode(Device device, AirobotThermostatMode mode)
+    {
+        using var httpClient = GetHttpClient();
+        var (_, getSettingsUrl) = GetUrls(device, true);
+        var (_, setSettingsUrl) = GetUrls(device, false);
+
+        //var settingsJson = await httpClient.GetStringAsync(getSettingsUrl);
+
+        //var json = JsonSerializer.Serialize(new { MODE = (int)mode });
+        var stringContent = new StringContent("{\"MODE\":\t" + (int)mode + "}", Encoding.UTF8, "application/json");
+
+        using var response = await httpClient.PostAsync(setSettingsUrl, stringContent);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            Logger.LogError("Failed to set mode for Airobot Thermostat device {DeviceId}. Status code: {StatusCode}", device.Id, response.StatusCode);
+        }
+    }
+
+    private static (string statusesUrl, string settingsUrl) GetUrls(Device device, bool get)
+    {
+        if (device.Address is null)
+            throw new InvalidOperationException("Device address is missing.");
+
+        var address = JsonSerializer.Deserialize<DeviceAddress>(device.Address);
+        if (address?.IP is null)
+            throw new InvalidOperationException("Device IP address is missing.");
+
+        var baseUrl = $"http://{address.IP}";
+        if (address.Port is not null)
+            baseUrl += ":" + address.Port;
+
+        var statusesUrl = baseUrl + "/api/thermostat/getStatuses";
+        var settingsUrl = baseUrl + $"/api/thermostat/{(get ? "get" : "set")}Settings";
+
+        return (statusesUrl, settingsUrl);
+    }
+
+    private HttpClient GetHttpClient()
+    {
+        var authenticationId = configuration["AuthenticationId"];
+        var authenticationSecret = configuration["AuthenticationSecret"];
+        if (string.IsNullOrEmpty(authenticationId) || string.IsNullOrEmpty(authenticationSecret))
+            throw new InvalidOperationException("Authentication credentials are missing.");
+        var httpClient = httpClientFactory.CreateClient(nameof(AirobotThermostatReader));
+
+        var authenticationString = $"{authenticationId}:{authenticationSecret}";
+        var base64EncodedAuthenticationString = Convert.ToBase64String(Encoding.ASCII.GetBytes(authenticationString));
+        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", base64EncodedAuthenticationString);
+        return httpClient;
     }
 
     private static PointValue? GetPointValue(JsonDocument jDoc, DevicePoint point)

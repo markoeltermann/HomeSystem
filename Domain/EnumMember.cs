@@ -11,5 +11,7 @@ public partial class EnumMember
 
     public string Name { get; set; } = null!;
 
+    public string? Type { get; set; }
+
     public virtual DevicePoint DevicePoint { get; set; } = null!;
 }

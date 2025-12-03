@@ -4,6 +4,7 @@ using NLog.Extensions.Logging;
 using SharedServices;
 using ValueReaderService;
 using ValueReaderService.Services;
+using ValueReaderService.Services.AirobotThermostat;
 using ValueReaderService.Services.ChineseRoomController;
 using ValueReaderService.Services.InverterSchedule;
 using ValueReaderService.Services.SolarModel;

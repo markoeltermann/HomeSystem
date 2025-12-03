@@ -105,6 +105,7 @@ public partial class HomeSystemContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(128)
                 .HasColumnName("name");
+            entity.Property(e => e.Type).HasColumnName("type");
 
             entity.HasOne(d => d.DevicePoint).WithMany(p => p.EnumMembers)
                 .HasForeignKey(d => d.DevicePointId)
