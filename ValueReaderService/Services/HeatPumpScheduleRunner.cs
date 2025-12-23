@@ -51,11 +51,11 @@ public class HeatPumpScheduleRunner(
         var actualHotWaterModePoint = heatPumpDevice.DevicePoints.FirstOrDefault(x => x.Type == "hot-water-mode");
         var heatingDegreeMinutesPoint = heatPumpDevice.DevicePoints.FirstOrDefault(x => x.Type == "heating-degree-minutes");
         var statusPoint = heatPumpDevice.DevicePoints.FirstOrDefault(x => x.Type == "status");
-        var heatingValue = GetEnumValue(statusPoint?.EnumMembers, "heating");
+        var heatingEnumValue = GetEnumValue(statusPoint?.EnumMembers, "heating");
 
         var thermostatModePoint = livingRoomThermostat?.DevicePoints.FirstOrDefault(x => x.Type == "mode");
-        var comfortValue = GetEnumValue(thermostatModePoint?.EnumMembers, "comfort");
-        var awayValue = GetEnumValue(thermostatModePoint?.EnumMembers, "away");
+        var comfortEnumValue = GetEnumValue(thermostatModePoint?.EnumMembers, "comfort");
+        var awayEnumValue = GetEnumValue(thermostatModePoint?.EnumMembers, "away");
 
         if (actualHeatingOffsetPoint != null && actualHotWaterModePoint != null && heatingDegreeMinutesPoint != null && statusPoint != null)
         {
@@ -92,13 +92,23 @@ public class HeatPumpScheduleRunner(
                     heatingDegreeMinutes.NewValue = 0;
                 }
 
-                if (thermostatModeValues != null && heatingValue != null)
+                if (thermostatModeValues != null && heatingEnumValue != null && heatingOffset.CurrentValue.HasValue)
                 {
                     thermostatMode.CurrentValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, thermostatModeValues);
                     var statusValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, statusValues);
-                    if (statusValue != null && thermostatMode.CurrentValue != null && comfortValue != null && awayValue != null)
+                    if (statusValue != null && thermostatMode.CurrentValue != null && comfortEnumValue != null && awayEnumValue != null)
                     {
-                        thermostatMode.NewValue = (int)statusValue == heatingValue.Value ? comfortValue : awayValue;
+                        if (heatingOffset.CurrentValue.Value >= 0)
+                        {
+                            if ((int)thermostatMode.CurrentValue.Value == comfortEnumValue)
+                                thermostatMode.NewValue = comfortEnumValue;
+                            else
+                                thermostatMode.NewValue = (int)statusValue == heatingEnumValue.Value ? comfortEnumValue : awayEnumValue;
+                        }
+                        else
+                        {
+                            thermostatMode.NewValue = awayEnumValue;
+                        }
                     }
                 }
             }
@@ -129,7 +139,7 @@ public class HeatPumpScheduleRunner(
 
         if (thermostatMode.HasChanged)
         {
-            await airobotThermostatReader.WriteMode(livingRoomThermostat!, (int)thermostatMode.NewValue == comfortValue!.Value ? AirobotThermostatMode.Home : AirobotThermostatMode.Away);
+            await airobotThermostatReader.WriteMode(livingRoomThermostat!, (int)thermostatMode.NewValue == comfortEnumValue!.Value ? AirobotThermostatMode.Home : AirobotThermostatMode.Away);
         }
 
         return null;
