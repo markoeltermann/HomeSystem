@@ -223,7 +223,7 @@ public class ElectricityPriceReader(
         if (timestamp.Month is 11 or 12 or 1 or 2 or 3)
         {
             var isEveningPeak = time >= TimeSpan.FromHours(16) && time < TimeSpan.FromHours(20);
-            if (timestamp.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday || time < TimeSpan.FromHours(7) || time >= TimeSpan.FromHours(22))
+            if (timestamp.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday || time < TimeSpan.FromHours(7) || time >= TimeSpan.FromHours(22) || IsNationalHoliday(timestamp))
             {
                 if (isEveningPeak)
                 {
@@ -257,6 +257,24 @@ public class ElectricityPriceReader(
                 return dayPrice;
             }
         }
+    }
+
+    private static bool IsNationalHoliday(DateTime timestamp)
+    {
+        return (timestamp.Month, timestamp.Day) switch
+        {
+            (1, 1) => true,
+            (2, 24) => true,
+            (5, 1) => true,
+            (6, 23) => true,
+            (6, 24) => true,
+            (8, 20) => true,
+            (12, 24) => true,
+            (12, 25) => true,
+            (12, 26) => true,
+            _ => false
+        };
+        throw new NotImplementedException();
     }
 
     private class ValueContainerDto
