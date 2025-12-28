@@ -12,19 +12,21 @@ public class ElectricityPriceReader(
     ILogger<ElectricityPriceReader> logger,
     PointValueStoreAdapter pointValueStoreAdapter,
     IHttpClientFactory httpClientFactory,
-    IConfiguration configuration,
     ConfigModel configModel) : DeviceReader(logger)
 {
     public override bool StorePointsWithReplace => true;
 
     protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
-        var vat = GetVat(configuration);
+        var vat = GetVat();
+        var purchaseMargin = configModel.ElectricityPurchaseMargin();
+        var saleMargin = configModel.ElectricitySaleMargin();
 
         var npsPriceRawPoint = devicePoints.FirstOrDefault(x => x.Address == "nps-price-raw");
         var gridPriceRawPoint = devicePoints.FirstOrDefault(x => x.Address == "grid-price-raw");
         var totalBuyPriceRawPoint = devicePoints.FirstOrDefault(x => x.Address == "total-buy-price");
-        if (npsPriceRawPoint == null || gridPriceRawPoint == null || totalBuyPriceRawPoint == null)
+        var totalSellPriceRawPoint = devicePoints.FirstOrDefault(x => x.Address == "total-sell-price");
+        if (npsPriceRawPoint == null || gridPriceRawPoint == null || totalBuyPriceRawPoint == null || totalSellPriceRawPoint == null)
         {
             return null;
         }
@@ -94,8 +96,11 @@ public class ElectricityPriceReader(
                 var gridPriceRaw = CalculateRawGridPrice(npsTimestamp);
                 result.Add(new(gridPriceRawPoint, gridPriceRaw.ToString(InvariantCulture), npsTimestamp));
 
-                var totalBuyPrice = gridPriceRaw * vat + (value <= 0m ? value : value * vat);
+                var totalBuyPrice = gridPriceRaw * vat + (value <= 0m ? value : value * vat) + purchaseMargin * vat;
                 result.Add(new(totalBuyPriceRawPoint, totalBuyPrice.ToString(InvariantCulture), npsTimestamp));
+
+                var totalSellPrice = value - saleMargin;
+                result.Add(new(totalSellPriceRawPoint, totalSellPrice.ToString(InvariantCulture), npsTimestamp));
 
                 npsTimestamp = npsTimestamp.AddMinutes(5);
             }
@@ -196,16 +201,9 @@ public class ElectricityPriceReader(
 
     private static KeyValuePair<string, string?> Q(string key, string? value) => new(key, value);
 
-    private static decimal GetVat(IConfiguration configuration)
+    private decimal GetVat()
     {
-        var vatRaw = configuration["ValueAddedTax"];
-        if (vatRaw.IsNullOrEmpty())
-        {
-        }
-        if (!decimal.TryParse(vatRaw, out var vat))
-        {
-            throw new InvalidOperationException("ValueAddedTax is not in correct format.");
-        }
+        var vat = configModel.ValueAddedTax();
         vat = vat / 100m + 1m;
         return vat;
     }

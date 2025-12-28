@@ -10,10 +10,12 @@ public class ConfigModel(IConfiguration configuration)
     public decimal WeatherForecastLongitude() => GetDecimal("WeatherForecastLongitude");
     public decimal WeatherForecastAltitude() => GetDecimal("WeatherForecastAltitude");
     public decimal ElectricitySaleMargin() => GetDecimal("ElectricitySaleMargin");
+    public decimal ElectricityPurchaseMargin() => GetDecimal("ElectricityPurchaseMargin");
     public string WeatherForecastContactEmail() => GetString("WeatherForecastContactEmail");
     public string PointValueStoreConnectorUrl() => GetString("PointValueStoreConnectorUrl");
     public string ModbusConnectorUrl() => GetString("ModbusConnectorUrl");
     public string EntsoeSecurityToken() => GetString("EntsoeSecurityToken");
+    public decimal ValueAddedTax() => GetDecimal("ValueAddedTax");
 
     private decimal GetDecimal(string key)
     {
