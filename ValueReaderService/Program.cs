@@ -26,14 +26,14 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddDbContext<HomeSystemContext>(options =>
             options.UseNpgsql(context.Configuration.GetConnectionString("HomeSystemContext")));
 
-        services.AddSingleton<BacnetDeviceReader>();
+        services.AddScoped<BacnetDeviceReader>();
         services.AddScoped<ChineseRoomControllerReader>();
-        services.AddSingleton<ShellyDeviceReader>();
-        services.AddSingleton<MyUplinkDeviceReader>();
-        services.AddSingleton<AirobotThermostatReader>();
-        services.AddSingleton<ModbusDeviceReader>();
+        services.AddScoped<ShellyDeviceReader>();
+        services.AddScoped<MyUplinkDeviceReader>();
+        services.AddScoped<AirobotThermostatReader>();
+        services.AddScoped<ModbusDeviceReader>();
         services.AddScoped<ElectricityPriceReader>();
-        services.AddSingleton<YrNoWeatherForecastReader>();
+        services.AddScoped<YrNoWeatherForecastReader>();
         services.AddScoped<InverterScheduleRunner>();
         services.AddScoped<HeatPumpScheduleRunner>();
         services.AddScoped<SolarModelRunner>();

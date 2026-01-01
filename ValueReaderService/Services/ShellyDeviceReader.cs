@@ -10,16 +10,7 @@ public class ShellyDeviceReader(
 {
     protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
-        if (device.Address is null)
-            return null;
-
-        var address = JsonSerializer.Deserialize<DeviceAddress>(device.Address);
-        if (address?.IP is null)
-            return null;
-
-        var url = $"http://{address.IP}";
-        if (address.Port is not null)
-            url += ":" + address.Port;
+        var url = GetUrl(device);
 
         url += "/rpc/Shelly.GetStatus";
 
@@ -52,5 +43,49 @@ public class ShellyDeviceReader(
         }
 
         return result;
+    }
+
+    private static string GetUrl(Device device)
+    {
+        if (device.Address is null)
+            throw new InvalidOperationException("Device address is missing.");
+
+        var address = JsonSerializer.Deserialize<DeviceAddress>(device.Address);
+        if (address?.IP is null)
+            throw new InvalidOperationException("Device IP address is missing.");
+
+        var url = $"http://{address.IP}";
+        if (address.Port is not null)
+            url += ":" + address.Port;
+
+        return url;
+    }
+
+    public async Task SendCommandAsync(Device device, string command, object body)
+    {
+        try
+        {
+            var url = GetUrl(device);
+
+            url += $"/rpc/{command}";
+
+            using var httpClient = httpClientFactory.CreateClient(nameof(ShellyDeviceReader));
+            var json = JsonSerializer.Serialize(body);
+            var response = await httpClient.PostAsync(url, new StringContent(json));
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Logger.LogError("Failed to send command {Command} to Shelly device {DeviceId}. Status code: {StatusCode}", device.Id, command, response.StatusCode);
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "Error sending command {Command} to Shelly device {DeviceId}.", command, device.Id);
+        }
+    }
+
+    public Task SendLightSetCommandAsync(Device device, int id, bool on, int brightness)
+    {
+        return SendCommandAsync(device, "Light.Set", new { id, on, brightness });
     }
 }
