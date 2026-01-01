@@ -14,7 +14,6 @@ builder.Services.AddControllers();
 builder.Services.AddDbContext<HomeSystemContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("HomeSystemContext")));
 
-
 builder.Services.AddWindowsService(options =>
 {
     options.ServiceName = "Home System UI Service";
@@ -40,7 +39,7 @@ else
 
 app.UseHttpsRedirection();
 
-app.UseStaticFiles();
+app.MapStaticAssets();
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>()

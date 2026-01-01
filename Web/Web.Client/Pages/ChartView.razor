@@ -6,6 +6,7 @@
 @using Web.Client.Services
 @inject HttpClient http
 @inject WindowSizeService windowSizeService
+
 @implements IDisposable
 
 <PageTitle>Point viewer</PageTitle>
@@ -48,6 +49,9 @@ else
     {
         await windowSizeService.InitializeAsync();
         _windowSize = windowSizeService.CurrentSize;
+        if (deviceChart != null)
+            await deviceChart.UpdateScale();
+
         windowSizeService.OnResize += HandleWindowResize;
 
         Devices = await http.GetFromJsonAsync<DeviceDto[]>("api/devices") ?? Array.Empty<DeviceDto>();
@@ -66,10 +70,16 @@ else
         await OnSelectedValuesUpdated();
     }
 
-    private void HandleWindowResize(WindowSize windowSize)
+    private async void HandleWindowResize(WindowSize windowSize)
     {
-        _windowSize = windowSize;
-        StateHasChanged();
+        try
+        {
+            _windowSize = windowSize;
+            if (deviceChart != null)
+                await deviceChart.UpdateScale();
+            StateHasChanged();
+        }
+        catch { }
     }
 
     private async Task OnSelectedValuesUpdated()

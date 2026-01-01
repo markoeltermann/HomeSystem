@@ -10,6 +10,7 @@
 @using Web.Client.DTOs
 @inject NavigationManager navManager
 @inject HttpClient http
+@inject IJSRuntime JS
 
 <div class="row mb-2">
     <div class="col-6 col-xl-3">
@@ -106,10 +107,19 @@
     IPalette? palette;
     bool isHoverLocked;
     private Color axisColor = new Color(0, 0, 0, 32);
+    private double scale = 1.0;
 
     private float FontSize => IsSmall ? 10f : 12f;
 
     private Dictionary<IYAxis, string> yAxisUnits = new();
+
+    public async Task UpdateScale()
+    {
+        scale = await JS.InvokeAsync<double>("getEffectiveScale");
+
+        if (blazorPlot?.Multiplot != null)
+            blazorPlot.Multiplot.Layout = new Rows(scale);
+    }
 
     private async Task OnPreviousDayClick()
     {
@@ -358,10 +368,13 @@
         return Updated.InvokeAsync();
     }
 
-    protected override Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            scale = await JS.InvokeAsync<double>("getEffectiveScale");
+            blazorPlot.Multiplot.Layout = new Rows(scale);
+
             Plot.Axes.ContinuouslyAutoscale = false;
             Plot.Axes.AutoScaler = new FractionalAutoScaler(yAxisUnits);
             Plot.Axes.ContinuousAutoscaleAction = (r) => throw new Exception();
@@ -430,7 +443,7 @@
                 new Tick(105, string.Empty, true),
                 new Tick(108, string.Empty, false),
                 new Tick(110, string.Empty, false),
-    ];
+            ];
             leftAxis.TickGenerator = new ScottPlot.TickGenerators.NumericManual(ticks);
 
             var grid = Plot.Grid;
@@ -445,8 +458,6 @@
         }
         chartStyle = $"width: 100%; touch-action:pan-y; height: {height};";
         crossHair!.FontSize = FontSize;
-
-        return Task.CompletedTask;
     }
 
     private async Task HandleMouseEvent(Pixel p, bool isRelease)
@@ -654,6 +665,23 @@
                 else
                     return Math.Floor(d);
             }
+        }
+    }
+
+    public class Rows(double scale) : IMultiplotLayout
+    {
+        public PixelRect[] GetSubplotRectangles(SubplotCollection subplots, PixelRect figureRect)
+        {
+            PixelRect[] rectangles = new PixelRect[subplots.Count];
+
+            double fractionPerRow = 1.0 / subplots.Count;
+            for (int i = 0; i < subplots.Count; i++)
+            {
+                FractionRect fr = new(0, fractionPerRow * i, 1 / scale, fractionPerRow / scale);
+                rectangles[i] = fr.GetPixelRect(figureRect);
+            }
+
+            return rectangles;
         }
     }
 
