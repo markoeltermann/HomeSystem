@@ -39,32 +39,31 @@ app.UseExceptionHandler();
 app.MapGet("/values", ([FromQuery(Name = "a")] int[] addresses, SolarmanV5Service solarmanService) =>
 {
     return solarmanService.ReadValues(addresses);
-}).WithOpenApi();
+});
 
 app.MapPut("/values/{address}", (int address, int value, SolarmanV5Service solarmanService) =>
 {
     return solarmanService.WriteValue(address, value);
-}).WithOpenApi();
+});
 
 app.MapGet("/schedule", ([FromServices] ScheduleService scheduleService) =>
 {
     return scheduleService.GetSchedule();
-}).WithOpenApi();
+});
 
 app.MapPut("/schedule", (ScheduleDto schedule, [FromServices] ScheduleService scheduleService) =>
 {
     return scheduleService.UpdateSchedule(schedule);
-}).WithOpenApi()
-.WithName("UpdateSchedule");
+}).WithName("UpdateSchedule");
 
 app.MapGet("/inverter-settings", ([FromServices] InverterSettingsService scheduleService) =>
 {
     return scheduleService.GetSettings();
-}).WithOpenApi();
+});
 
 app.MapPut("/inverter-settings", (InverterSettingsUpdateDto settings, [FromServices] InverterSettingsService scheduleService) =>
 {
     return scheduleService.UpdateSettings(settings);
-}).WithOpenApi();
+});
 
 app.Run();

@@ -137,6 +137,20 @@ public class SolarmanV5Service(ILogger<SolarmanV5Service> logger, IConfiguration
     {
         var frame = GetOutgoingFrame(loggerSerial, modbusFrame);
 
+        for (int i = 0; i < 3; i++)
+        {
+            var result = SendModbusFrameInternal(ref modbusFrame, loggerIP, loggerPort, frame);
+            if (result != null)
+            {
+                return result;
+            }
+        }
+
+        return null;
+    }
+
+    private byte[]? SendModbusFrameInternal(ref byte[] modbusFrame, IPAddress loggerIP, int loggerPort, byte[] frame)
+    {
         var endpoint = new IPEndPoint(loggerIP, loggerPort);
         using var tcpClient = new TcpClient
         {

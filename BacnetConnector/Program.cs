@@ -23,11 +23,11 @@ app.UseSwaggerUI();
 app.MapGet("/points", (BacnetService bacnetService) =>
 {
     return bacnetService.ReadAllPoints();
-}).WithOpenApi();
+});
 
 app.MapGet("/values", ([FromQuery(Name = "a")] string[] addresses, BacnetService bacnetService) =>
 {
     return bacnetService.ReadValues(addresses);
-}).WithOpenApi();
+});
 
 app.Run();
