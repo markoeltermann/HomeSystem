@@ -146,7 +146,7 @@ public class HeatPumpScheduleRunner(
                 {
                     if ((int)statusValue == heatingEnumValue)
                     {
-                        valveSignal.NewValue = 95;
+                        valveSignal.NewValue = 96;
                     }
                     else if ((int)statusValue != defrostingEnumValue)
                     {
