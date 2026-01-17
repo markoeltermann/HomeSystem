@@ -11,6 +11,7 @@
 @inject NavigationManager navManager
 @inject HttpClient http
 @inject IJSRuntime JS
+@* @inject ILogger<DeviceChart> Logger; *@
 
 <div class="row mb-2">
     <div class="col-6 col-xl-3">
@@ -290,6 +291,10 @@
                     {
                         yAxis.IsVisible = false;
                     }
+                    else
+                    {
+                        yAxis.IsVisible = !IsSmall || unitIndex == 1;
+                    }
                 }
                 else
                 {
@@ -351,7 +356,7 @@
 
             blazorPlot.Plot.MoveToFront(crossHair!);
 
-            isHoverLocked = true;
+            isHoverLocked = !IsSmall;
         }
         else
         {
@@ -462,6 +467,8 @@
 
     private async Task HandleMouseEvent(Pixel p, bool isRelease)
     {
+        // Logger.LogInformation("Mouse event at pixel {X},{Y} (isRelease={IsRelease})", p.X, p.Y, isRelease);
+
         if (!isRelease && isHoverLocked)
             return;
 
@@ -487,7 +494,7 @@
 
             if (isRelease)
             {
-                isHoverLocked = !isHoverLocked;
+                isHoverLocked = !isHoverLocked && !IsSmall;
             }
 
             await OnUpdated();
