@@ -120,6 +120,9 @@ public partial class HomeSystemContext : DbContext
                 .ToTable("inverter_settings");
 
             entity.Property(e => e.BatteryChargeCurrent).HasColumnName("battery_charge_current");
+            entity.Property(e => e.BatteryDischargeCurrent).HasColumnName("battery_discharge_current");
+            entity.Property(e => e.BatteryDischargeCurrentBelow20).HasColumnName("battery_discharge_current_below_20");
+            entity.Property(e => e.BatteryDischargeCurrentBelow30).HasColumnName("battery_discharge_current_below_30");
         });
 
         modelBuilder.Entity<Job>(entity =>

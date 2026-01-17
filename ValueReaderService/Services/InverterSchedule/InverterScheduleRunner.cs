@@ -5,6 +5,7 @@ using SolarmanV5Client.Models;
 using System.Diagnostics.CodeAnalysis;
 
 namespace ValueReaderService.Services.InverterSchedule;
+
 public class InverterScheduleRunner(
     ILogger<DeviceReader> logger,
     HomeSystemContext dbContext,
@@ -93,9 +94,16 @@ public class InverterScheduleRunner(
             var isAdaptiveSellEnabled = GetCurrentValue(timestampLocal, adaptiveSellEnableValues) > 0.0;
             var currentBatteryLevel = GetCurrentValue(timestampLocal, batteryLevelValues);
 
+            var maxDischargeCurrent = inverterSettings.BatteryDischargeCurrent;
+            if (currentActualBatteryLevel <= 20)
+                maxDischargeCurrent = inverterSettings.BatteryDischargeCurrentBelow20;
+            else if (currentActualBatteryLevel <= 30)
+                maxDischargeCurrent = inverterSettings.BatteryDischargeCurrentBelow30;
+
             settings = new InverterSettingsUpdateDto
             {
                 MaxChargeCurrent = isAdaptiveSellEnabled && (currentActualBatteryLevel - currentBatteryLevel >= 5.0) ? 0 : inverterSettings.BatteryChargeCurrent,
+                MaxDischargeCurrent = maxDischargeCurrent,
             };
             await UpdateInverterSettings(settings);
 #if !DEBUG
