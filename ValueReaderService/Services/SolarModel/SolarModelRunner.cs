@@ -40,7 +40,7 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
             var (elevationAngle, azimuthAngle) = SolarAngleCalculator.CalculateSolarAngles((double)lat, (double)lon, t);
             result.Add(new PointValue(elevation, elevationAngle.ToString("0.00", InvariantCulture), t));
             result.Add(new PointValue(azimuth, azimuthAngle.ToString("0.00", InvariantCulture), t));
-            t = t.AddMinutes(10);
+            t = t.AddMinutes(5);
         }
 
         var solarPredictions = await GenerateSolarPredictions(timestamp);
@@ -53,7 +53,7 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
     {
         var tomorrowLocal = timestamp.ToLocalTime().Date.AddDays(1);
 
-        var start = DateOnly.FromDateTime(timestamp.AddDays(-90));
+        var start = DateOnly.FromDateTime(timestamp.AddDays(-365));
         var end = DateOnly.FromDateTime(timestamp.AddDays(2));
 
         var devices = dbContext.Devices.Where(x => x.Type == "solar_model" || x.Type == "deye_inverter" || x.Type == "yrno_weather_forecast")
@@ -63,8 +63,17 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
         var devicePoints = devices.SelectMany(x => x.DevicePoints).ToList();
 
         var predictedPVInputPowerPoint = devicePoints.First(x => x.Type == "predicted-pv-input-power");
+        var predictedDayPVEnergyPoint = devicePoints.First(x => x.Type == "predicted-day-pv-energy");
 
         var allSolarModelPoints = await GetPoints(devicePoints, start, end);
+
+        DetectSnowPoints(allSolarModelPoints);
+
+        var maxSolarElevation = allSolarModelPoints.Where(x => x.Timestamp.ToLocalTime() >= tomorrowLocal).Max(x => x.SolarElevation);
+        var dayCutoffElevation = maxSolarElevation * 0.5f;
+        if (dayCutoffElevation > 14)
+            dayCutoffElevation = 14;
+
         foreach (var solarModelPoint in allSolarModelPoints)
         {
             // Calculate Cos and Sin of Solar Elevation
@@ -75,12 +84,12 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
             // Calculate Cos Relative Azimuth
             solarModelPoint.CosRelativeAzimuth = (float)Math.Cos((solarModelPoint.SolarAzimuth - 230) * Math.PI / 180);
         }
-        var solarModelPoints = allSolarModelPoints.Where(x => x.AllValuesExist(true) && x.SolarElevation >= -5).ToList();
-        var trainPointsMorning = solarModelPoints.Where(x => x.SolarSellEnable > 0 && x.AllValuesExist(false) && x.SolarElevation < 15 && x.SolarAzimuth < 180).ToList();
-        var trainPointsEvening = solarModelPoints.Where(x => x.SolarSellEnable > 0 && x.AllValuesExist(false) && x.SolarElevation < 15 && x.SolarAzimuth > 180).ToList();
+        var solarModelPoints = allSolarModelPoints.Where(x => x.AllValuesExist(true) && x.SolarElevation >= -5 && !x.ArePanelsUnderSnow).ToList();
+        var trainPointsMorning = solarModelPoints.Where(x => x.SolarSellEnable > 0 && x.AllValuesExist(false) && x.SolarElevation < dayCutoffElevation + 1 && x.SolarAzimuth < 180).ToList();
+        var trainPointsEvening = solarModelPoints.Where(x => x.SolarSellEnable > 0 && x.AllValuesExist(false) && x.SolarElevation < dayCutoffElevation + 1 && x.SolarAzimuth > 180).ToList();
         var trainPoints = solarModelPoints.Where(x => x.SolarSellEnable > 0 && x.AllValuesExist(false) && x.SolarElevation > 6).ToList();
 
-        var predictionPoints = solarModelPoints.Where(x => x.Timestamp.ToLocalTime() >= tomorrowLocal).ToList();
+        var predictionPoints = solarModelPoints.Where(x => x.Timestamp.ToLocalTime() >= tomorrowLocal).OrderBy(x => x.Timestamp).ToList();
         var skippedSolarModelPoints = allSolarModelPoints.Where(x => x.Timestamp.ToLocalTime() >= tomorrowLocal).Except(predictionPoints).ToList();
 
         var mlContext = new MLContext();
@@ -142,20 +151,39 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
         //PrintMetrics(metrics);
 
         var predictedPVInputPowerPointValues = new List<PointValue>();
+        var predictedDayPVEnergyPointValues = new List<(PointValue pointValue, float value)>();
+        var predictedDayPVEnergy = 0f;
+        DateTime? currentDate = null;
+
         for (int i = 0; i < predictionPoints.Count; i++)
         {
             var solarModelPoint = predictionPoints[i];
-            var predictedPVInputPower = solarModelPoint.SolarElevation < 14
-                ? (solarModelPoint.SolarAzimuth < 180 ? predictedPVInputPowersMorning[i] : predictedPVInputPowersEvening[i])
-                : predictedPVInputPowers[i];
+
+            if (currentDate != null && currentDate.Value.Date != solarModelPoint.Timestamp.ToLocalTime().Date)
+            {
+                predictedDayPVEnergy = 0;
+            }
+
+            currentDate = solarModelPoint.Timestamp;
+
+            var dayCoeff = Math.Clamp(solarModelPoint.SolarElevation - dayCutoffElevation + 1.5f, 0, 3) * 0.3333333f;
+            var morningEveningCoeff = 1.0f - dayCoeff;
+
+            var predictedPVInputPower = dayCoeff * predictedPVInputPowers[i]
+                + morningEveningCoeff * (solarModelPoint.SolarAzimuth < 180 ? predictedPVInputPowersMorning[i] : predictedPVInputPowersEvening[i]);
 
             if (predictedPVInputPower < 0)
                 predictedPVInputPower = 0;
             if (predictedPVInputPower > 9000)
                 predictedPVInputPower = 9000;
 
+            predictedDayPVEnergy += predictedPVInputPower / 6000f;
+
             var pointValue = new PointValue(predictedPVInputPowerPoint, predictedPVInputPower.ToString("0.00", InvariantCulture), solarModelPoint.Timestamp);
             predictedPVInputPowerPointValues.Add(pointValue);
+
+            var dayEnergyPointValue = new PointValue(predictedDayPVEnergyPoint, predictedDayPVEnergy.ToString("0.00", InvariantCulture), solarModelPoint.Timestamp);
+            predictedDayPVEnergyPointValues.Add((dayEnergyPointValue, predictedDayPVEnergy));
         }
 
         foreach (var solarModelPoint in skippedSolarModelPoints)
@@ -163,9 +191,41 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
             predictedPVInputPowerPointValues.Add(new PointValue(predictedPVInputPowerPoint, 0.0.ToString("0.00", InvariantCulture), solarModelPoint.Timestamp));
         }
 
-        predictedPVInputPowerPointValues = predictedPVInputPowerPointValues.OrderBy(x => x.Timestamp).ToList();
+        foreach (var day in skippedSolarModelPoints.GroupBy(x => x.Timestamp.ToLocalTime().Date))
+        {
+            var dayMaxValue = predictedDayPVEnergyPointValues
+                .Where(x => x.pointValue.Timestamp!.Value.ToLocalTime().Date == day.Key)
+                .Max(x => (float?)x.value) ?? 0f;
 
-        return predictedPVInputPowerPointValues;
+            foreach (var dayValue in day)
+            {
+                var value = dayValue.Timestamp.ToLocalTime().Hour < 12 ? 0.0f : dayMaxValue;
+                var dayEnergyPointValue = new PointValue(predictedDayPVEnergyPoint, value.ToString("0.00", InvariantCulture), dayValue.Timestamp);
+                predictedDayPVEnergyPointValues.Add((dayEnergyPointValue, value));
+            }
+        }
+
+        predictedPVInputPowerPointValues = predictedPVInputPowerPointValues.OrderBy(x => x.Timestamp).ToList();
+        predictedDayPVEnergyPointValues = predictedDayPVEnergyPointValues.OrderBy(x => x.pointValue.Timestamp).ToList();
+
+        return predictedPVInputPowerPointValues.Concat(predictedDayPVEnergyPointValues.Select(x => x.pointValue)).ToList();
+    }
+
+    private static void DetectSnowPoints(List<SolarModelPoint> allSolarModelPoints)
+    {
+        var days = allSolarModelPoints.GroupBy(x => x.Timestamp.ToLocalTime().Date).ToList();
+
+        foreach (var day in days)
+        {
+            var maxPower = day.Max(x => x.PVInputPower);
+            if (maxPower < 220)
+            {
+                foreach (var solarModelPoint in day)
+                {
+                    solarModelPoint.ArePanelsUnderSnow = true;
+                }
+            }
+        }
     }
 
     private static IDataView CreateDataView(MLContext mlContext, List<object> generatedModelPoints)
@@ -381,6 +441,8 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
         public float SinSolarElevation { get; set; }
         public float AtmosphericFactor { get; set; }
         public float CosRelativeAzimuth { get; set; }
+
+        public bool ArePanelsUnderSnow { get; set; }
 
         public static readonly Dictionary<string, PropertyInfo> PointProperties = typeof(SolarModelPoint).GetProperties()
             .Where(x => x.GetCustomAttributes<PointTypeAttribute>().Any())
