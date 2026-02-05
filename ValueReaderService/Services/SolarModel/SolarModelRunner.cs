@@ -70,7 +70,7 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
         DetectSnowPoints(allSolarModelPoints);
 
         var maxSolarElevation = allSolarModelPoints.Where(x => x.Timestamp.ToLocalTime() >= tomorrowLocal).Max(x => x.SolarElevation);
-        var dayCutoffElevation = maxSolarElevation * 0.5f;
+        var dayCutoffElevation = maxSolarElevation * 0.65f;
         if (dayCutoffElevation > 14)
             dayCutoffElevation = 14;
 
@@ -84,13 +84,13 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
             // Calculate Cos Relative Azimuth
             solarModelPoint.CosRelativeAzimuth = (float)Math.Cos((solarModelPoint.SolarAzimuth - 230) * Math.PI / 180);
         }
-        var solarModelPoints = allSolarModelPoints.Where(x => x.AllValuesExist(true) && x.SolarElevation >= -5 && !x.ArePanelsUnderSnow).ToList();
-        var trainPointsMorning = solarModelPoints.Where(x => x.SolarSellEnable > 0 && x.AllValuesExist(false) && x.SolarElevation < dayCutoffElevation + 1 && x.SolarAzimuth < 180).ToList();
-        var trainPointsEvening = solarModelPoints.Where(x => x.SolarSellEnable > 0 && x.AllValuesExist(false) && x.SolarElevation < dayCutoffElevation + 1 && x.SolarAzimuth > 180).ToList();
+        var solarModelPoints = allSolarModelPoints.Where(x => x.AllValuesExist(true) && x.SolarElevation >= -1.5f && !x.ArePanelsUnderSnow).ToList();
+        var trainPointsMorning = solarModelPoints.Where(x => x.SolarSellEnable > 0 && x.AllValuesExist(false) && x.SolarElevation < dayCutoffElevation + 2 && x.SolarAzimuth < 180).ToList();
+        var trainPointsEvening = solarModelPoints.Where(x => x.SolarSellEnable > 0 && x.AllValuesExist(false) && x.SolarElevation < dayCutoffElevation + 2 && x.SolarAzimuth > 180).ToList();
         var trainPoints = solarModelPoints.Where(x => x.SolarSellEnable > 0 && x.AllValuesExist(false) && x.SolarElevation > 6).ToList();
 
-        var predictionPoints = solarModelPoints.Where(x => x.Timestamp.ToLocalTime() >= tomorrowLocal).OrderBy(x => x.Timestamp).ToList();
-        var skippedSolarModelPoints = allSolarModelPoints.Where(x => x.Timestamp.ToLocalTime() >= tomorrowLocal).Except(predictionPoints).ToList();
+        var predictionPoints = solarModelPoints.Where(x => x.Timestamp.ToLocalTime() >= tomorrowLocal.AddDays(-1)).OrderBy(x => x.Timestamp).ToList();
+        var skippedSolarModelPoints = allSolarModelPoints.Where(x => x.Timestamp.ToLocalTime() >= tomorrowLocal.AddDays(-1)).Except(predictionPoints).ToList();
 
         var mlContext = new MLContext();
 
@@ -166,7 +166,7 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
 
             currentDate = solarModelPoint.Timestamp;
 
-            var dayCoeff = Math.Clamp(solarModelPoint.SolarElevation - dayCutoffElevation + 1.5f, 0, 3) * 0.3333333f;
+            var dayCoeff = Math.Clamp(solarModelPoint.SolarElevation - dayCutoffElevation + 2f, 0, 4) * 0.25f;
             var morningEveningCoeff = 1.0f - dayCoeff;
 
             var predictedPVInputPower = dayCoeff * predictedPVInputPowers[i]
@@ -177,7 +177,7 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
             if (predictedPVInputPower > 9000)
                 predictedPVInputPower = 9000;
 
-            predictedDayPVEnergy += predictedPVInputPower / 6000f;
+            predictedDayPVEnergy += predictedPVInputPower / 12000f;
 
             var pointValue = new PointValue(predictedPVInputPowerPoint, predictedPVInputPower.ToString("0.00", InvariantCulture), solarModelPoint.Timestamp);
             predictedPVInputPowerPointValues.Add(pointValue);
@@ -265,16 +265,104 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
 
         foreach (var (pointType, propertyInfo) in SolarModelPoint.PointProperties)
         {
-            var pointValues = await pointValueStoreAdapter.Get(devicePoints.First(x => x.Type == pointType).Id, start, end);
-            foreach (var pointValue in pointValues.Values!)
-            {
-                if (!result.TryGetValue(pointValue.Timestamp.UtcDateTime, out var solarModelPoint))
-                {
-                    solarModelPoint = new SolarModelPoint { Timestamp = pointValue.Timestamp.UtcDateTime };
-                    result[solarModelPoint.Timestamp] = solarModelPoint;
-                }
+            var interpolate = propertyInfo.GetCustomAttribute<PointTypeAttribute>()?.Interpolate ?? false;
+            var pointValues = await pointValueStoreAdapter.Get(devicePoints.First(x => x.Type == pointType).Id, start, end, true);
 
-                propertyInfo.SetValue(solarModelPoint, (float?)pointValue.Value ?? float.NaN);
+            if (interpolate)
+            {
+                var values = pointValues.Values!.GroupBy(x =>
+                {
+                    var t = x.Timestamp.UtcDateTime;
+                    return new DateTime(t.Year, t.Month, t.Day, t.Hour, 0, 0, DateTimeKind.Utc);
+                })
+                    .Select(g => g.First())
+                    .ToList();
+
+                for (int i = 0; i < values.Count; i++)
+                {
+                    var prev = i == 0 ? null : values[i - 1];
+                    var current = values[i];
+                    var next = i == values.Count - 1 ? null : values[i + 1];
+
+                    var prevValue = (float?)prev?.Value;
+                    var nextValue = (float?)next?.Value;
+                    var currentValue = (float?)current.Value;
+
+                    var t = current.Timestamp.UtcDateTime;
+
+                    for (int j = 0; j < 6; j++)
+                    {
+                        float? value = null;
+
+                        if (currentValue != null)
+                        {
+                            if (prevValue == null)
+                            {
+                                value = currentValue;
+                            }
+                            else
+                            {
+                                var r = (6f - j) / 12f;
+                                r = r * r * r * 4;
+                                value = prevValue * r + currentValue * (1 - r);
+                            }
+
+                        }
+
+                        if (!result.TryGetValue(t, out var solarModelPoint))
+                        {
+                            solarModelPoint = new SolarModelPoint { Timestamp = t };
+                            result[solarModelPoint.Timestamp] = solarModelPoint;
+                        }
+
+                        propertyInfo.SetValue(solarModelPoint, value ?? float.NaN);
+
+                        t = t.AddMinutes(5);
+                    }
+
+                    for (int j = 0; j < 6; j++)
+                    {
+                        float? value = null;
+
+                        if (currentValue != null)
+                        {
+                            if (nextValue == null)
+                            {
+                                value = currentValue;
+                            }
+                            else
+                            {
+                                var r = j / 12f;
+                                r = r * r * r * 4;
+                                value = currentValue * (1 - r) + nextValue * r;
+                            }
+
+                        }
+
+                        if (!result.TryGetValue(t, out var solarModelPoint))
+                        {
+                            solarModelPoint = new SolarModelPoint { Timestamp = t };
+                            result[solarModelPoint.Timestamp] = solarModelPoint;
+                        }
+
+                        propertyInfo.SetValue(solarModelPoint, value ?? float.NaN);
+
+                        t = t.AddMinutes(5);
+                    }
+                }
+            }
+            else
+            {
+                foreach (var pointValue in pointValues.Values!)
+                {
+                    if (!result.TryGetValue(pointValue.Timestamp.UtcDateTime, out var solarModelPoint))
+                    {
+                        solarModelPoint = new SolarModelPoint { Timestamp = pointValue.Timestamp.UtcDateTime };
+                        result[solarModelPoint.Timestamp] = solarModelPoint;
+                    }
+
+                    propertyInfo.SetValue(solarModelPoint, (float?)pointValue.Value ?? float.NaN);
+                }
             }
         }
 
@@ -422,13 +510,13 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
         [PointType("solar-sell-enable")]
         public float SolarSellEnable { get; set; }
 
-        [PointType("cloud-area-fraction-low")]
+        [PointType("cloud-area-fraction-low", true)]
         public float CloudAreaFractionLow { get; set; }
 
-        [PointType("cloud-area-fraction-medium")]
+        [PointType("cloud-area-fraction-medium", true)]
         public float CloudAreaFractionMedium { get; set; }
 
-        [PointType("cloud-area-fraction-high")]
+        [PointType("cloud-area-fraction-high", true)]
         public float CloudAreaFractionHigh { get; set; }
 
         [PointType("solar-azimuth")]
@@ -460,8 +548,9 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
     }
 
     [AttributeUsage(AttributeTargets.Property)]
-    private class PointTypeAttribute(string type) : Attribute
+    private class PointTypeAttribute(string type, bool interpolate = false) : Attribute
     {
         public string Type { get; set; } = type;
+        public bool Interpolate { get; } = interpolate;
     }
 }
