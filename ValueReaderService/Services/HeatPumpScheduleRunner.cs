@@ -89,9 +89,14 @@ public class HeatPumpScheduleRunner(
 
         heatingDegreeMinutes.CurrentValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, heatingDegreeMinutesValues);
 
-        if (heatingOffset.HasChanged && heatingOffset.NewValue.Value >= 0 && heatingOffset.CurrentValue.Value < 0 && heatingDegreeMinutes.CurrentValue > 0)
+        if (heatingOffset.HasChanged && heatingOffset.NewValue.Value >= 0 && heatingOffset.CurrentValue.Value < 0 && heatingDegreeMinutes.CurrentValue.HasValue)
         {
-            heatingDegreeMinutes.NewValue = 0;
+            var heatingOffsetDelta = (int)(heatingOffset.NewValue.Value - heatingOffset.CurrentValue.Value);
+            var newValue = heatingOffsetDelta * -10;
+            if (newValue < -60)
+                newValue = -60;
+            if (heatingDegreeMinutes.CurrentValue.Value > newValue)
+                heatingDegreeMinutes.NewValue = newValue;
         }
         else if (heatingOffset.HasChanged && heatingOffset.NewValue.Value < 0 && heatingOffset.CurrentValue.Value >= 0 && heatingDegreeMinutes.CurrentValue < 0)
         {
