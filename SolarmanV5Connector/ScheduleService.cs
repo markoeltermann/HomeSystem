@@ -2,7 +2,7 @@
 
 namespace SolarmanV5Connector;
 
-public class ScheduleService(SolarmanV5Service solarmanV5Service)
+public class ScheduleService(SolarmanV5Service solarmanV5Service, TimeService timeService)
 {
     private static readonly int[] addressesToRead = [145, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177];
     public ScheduleDto? GetSchedule()
@@ -67,6 +67,9 @@ public class ScheduleService(SolarmanV5Service solarmanV5Service)
         {
             return null;
         }
+
+        if (!SyncTime())
+            return null;
 
         if (oldSchedule.SchedulePoint1.Time != schedule.SchedulePoint1.Time)
         {
@@ -174,6 +177,22 @@ public class ScheduleService(SolarmanV5Service solarmanV5Service)
         //}
 
         return GetSchedule();
+    }
+
+    private bool SyncTime()
+    {
+        var now = DateTime.Now;
+        var inverterTime = timeService.GetTime();
+
+        if (inverterTime == null)
+            return false;
+
+        if (Math.Abs((inverterTime.Value - now).TotalSeconds) > 35)
+        {
+            return timeService.SetTime(now).HasValue;
+        }
+
+        return true;
     }
 
     private static void Validate(ScheduleDto schedule)

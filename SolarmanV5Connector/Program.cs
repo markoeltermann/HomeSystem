@@ -16,6 +16,7 @@ builder.Services.AddWindowsService(options =>
 builder.Services.AddSingleton<SolarmanV5Service>();
 builder.Services.AddSingleton<ScheduleService>();
 builder.Services.AddSingleton<InverterSettingsService>();
+builder.Services.AddSingleton<TimeService>();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ExceptionToProblemDetailsHandler>();
 
@@ -64,6 +65,18 @@ app.MapGet("/inverter-settings", ([FromServices] InverterSettingsService schedul
 app.MapPut("/inverter-settings", (InverterSettingsUpdateDto settings, [FromServices] InverterSettingsService scheduleService) =>
 {
     return scheduleService.UpdateSettings(settings);
+});
+
+app.MapGet("/time", ([FromServices] TimeService timeService) =>
+{
+    return timeService.GetTime();
+});
+
+app.MapPost("/time/sync", ([FromServices] TimeService timeService) =>
+{
+    var currentTime = DateTime.Now;
+    var result = timeService.SetTime(currentTime);
+    return result.HasValue ? Results.Ok(result.Value) : Results.InternalServerError();
 });
 
 app.Run();
