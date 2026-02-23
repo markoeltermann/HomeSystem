@@ -6,26 +6,28 @@ The `ConsumptionCalculatorRunner` service is a background task designed to calcu
 Calculate the energy production of a single day (starting from 0 at the beginning of the day) by reading the `total-pv-energy` point from a Deye inverter. The resulting values are interpolated linearly between measurement changes to provide a smoother curve, and the final output is mapped to a `day-pv-energy` point.
 
 ## 2. Dependencies
-- **Data Source**: `PointValueStoreAdapter` is used to fetch historical values with a 5-minute resolution.
-- **Context**: `HomeSystemContext` is used to locate the inverter device and its specific data points.
+- **Data Source**: `PointValueStoreAdapter` is used to fetch historical values with a 5-minute resolution for energy and solar elevation.
+- **Context**: `HomeSystemContext` is used to locate the inverter and solar model devices and their specific data points.
 - **Logic Base**: Inherits from `DeviceReader`.
 
 ## 3. Workflow Logic
 
 ### 3.1 Initialization and Setup
-- The runner identifies the inverter device using the type `deye_inverter`.
-- It locates the source point `total-pv-energy` on the inverter.
+- The runner identifies the inverter device (`deye_inverter`) and the solar model device (`solar_model`).
+- It locates `total-pv-energy` on the inverter and `solar-elevation` on the solar model.
 - It identifies the target point `day-pv-energy` from the current device execution context.
 - All calculations are performed relative to the current day in **local time**, though input/output timestamps remain in UTC.
 
 ### 3.2 Data Retrieval
-- Fetches all values for the `total-pv-energy` point for the current local date using 5-minute resolution from `PointValueStoreAdapter`.
+- Fetches all values for both `total-pv-energy` and `solar-elevation` for the current local date using 5-minute resolution.
 - If no values or no valid numeric values are found, the execution terminates.
-- **Base Value**: The first numeric value of the day is identified. This value is subtracted from all subsequent readings to calculate "Day Energy" (starting at 0).
+- **Solar Elevation Threshold**: A constant (set to -1 degrees) is used to distinguish between day and night.
+- **Base Value**: The first numeric value of the day where solar elevation is **above** the threshold is identified as the starting reference for the day.
 
 ### 3.3 Anchor Point Detection
 - The algorithm scans values up to the current `timestamp`.
-- It identifies **Anchor Points**: Indices where the value has changed compared to the previous measurement.
+- It identifies **Anchor Points**: Indices where the energy value has changed compared to the previous measurement, **but only if the solar elevation is above the threshold**. The first point that meets the threshold criteria is automatically treated as an anchor point to serve as the day's starting baseline.
+- This filtering ensures that all energy increments occurring during the night (when solar elevation is below the threshold) are discarded, preventing false production slopes.
 - If no changes are detected yet (e.g., early morning), the progression is set to `0.00` for all timestamps up to now.
 
 ### 3.4 Processing and Interpolation
