@@ -105,6 +105,10 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                         {
                             RunReader<SolarModelRunner>(serviceProvider, wakeTime, tasks, device, stoppingToken);
                         }
+                        else if (device.Type == "consumption_calculator")
+                        {
+                            RunReader<ConsumptionCalculatorRunner>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
                     }
                 }
 
