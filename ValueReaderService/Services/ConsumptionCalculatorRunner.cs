@@ -14,9 +14,59 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
 #if !DEBUG
         await Task.Delay(TimeSpan.FromSeconds(10));
 #endif
+        return await CalculateUsingPower(timestamp, devicePoints);
+    }
 
+    private async Task<IList<PointValue>?> CalculateUsingPower(DateTime timestamp, ICollection<DevicePoint> devicePoints)
+    {
         var inverterDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "deye_inverter")
-            ?? throw new InvalidOperationException("Inverter device not found");
+                    ?? throw new InvalidOperationException("Inverter device not found");
+
+        var solarModelDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "solar_model")
+            ?? throw new InvalidOperationException("Solar model device not found");
+
+        var pvInputPowerPoint = inverterDevice.DevicePoints.FirstOrDefault(x => x.Type == "pv-input-power")
+            ?? throw new InvalidOperationException("Point 'pv-input-power' not found on inverter device");
+
+        var solarElevationPoint = solarModelDevice.DevicePoints.FirstOrDefault(x => x.Type == "solar-elevation")
+            ?? throw new InvalidOperationException("Point 'solar-elevation' not found on solar model device");
+
+        var dayPvEnergyPoint = devicePoints.FirstOrDefault(x => x.Type == "day-pv-energy");
+        if (dayPvEnergyPoint == null)
+        {
+            return null;
+        }
+
+        var timestampLocal = timestamp.ToLocalTime();
+        var date = DateOnly.FromDateTime(timestampLocal);
+
+        var pvInputPowerValues = (await pointValueStoreAdapter.Get(pvInputPowerPoint.Id, date, fiveMinResolution: true)).Values!;
+        var elevationValues = (await pointValueStoreAdapter.Get(solarElevationPoint.Id, date, fiveMinResolution: true)).Values!;
+
+        var elevationLookup = elevationValues.ToDictionary(v => v.Timestamp, v => v.Value);
+
+        var result = new List<PointValue>();
+        double accumulatedEnergyKWh = 0;
+
+        foreach (var pvReading in pvInputPowerValues)
+        {
+            if (pvReading.Timestamp > timestampLocal.AddSeconds(1)) break;
+
+            if (pvReading.Value.HasValue && elevationLookup.TryGetValue(pvReading.Timestamp, out var elevation) && elevation >= MinSolarElevation)
+            {
+                accumulatedEnergyKWh += pvReading.Value.Value / 12000.0;
+            }
+
+            result.Add(new PointValue(dayPvEnergyPoint, accumulatedEnergyKWh.ToString("0.00", InvariantCulture), pvReading.Timestamp.UtcDateTime));
+        }
+
+        return result;
+    }
+
+    private async Task<IList<PointValue>?> CalculateUsingEnergy(DateTime timestamp, ICollection<DevicePoint> devicePoints)
+    {
+        var inverterDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "deye_inverter")
+                    ?? throw new InvalidOperationException("Inverter device not found");
 
         var solarModelDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "solar_model")
             ?? throw new InvalidOperationException("Solar model device not found");
