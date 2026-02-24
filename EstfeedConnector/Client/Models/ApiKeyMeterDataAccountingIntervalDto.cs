@@ -19,7 +19,7 @@ namespace EstfeedConnector.Client.Models
         /// <summary>Consumption in m3 (used for gas metering data)</summary>
         public double? ConsumptionM3 { get; set; }
         /// <summary>Timestamp of the accounting interval interval begin time in UTCperiodStart indicates the start of the time period for which the metering data applies.The next periodStart also marks the end of the previous period</summary>
-        public DateTimeOffset? PeriodStart { get; set; }
+        public DateTimeOffset PeriodStart { get; set; }
         /// <summary>Production in kWh</summary>
         public double? ProductionKwh { get; set; }
         /// <summary>Production in m3 (used for gas metering data)It is included in the response only if data for the specific time interval is available (only for gas metering point(s)).</summary>
@@ -51,7 +51,7 @@ namespace EstfeedConnector.Client.Models
             {
                 { "consumptionKwh", n => { ConsumptionKwh = n.GetDoubleValue(); } },
                 { "consumptionM3", n => { ConsumptionM3 = n.GetDoubleValue(); } },
-                { "periodStart", n => { PeriodStart = n.GetDateTimeOffsetValue(); } },
+                { "periodStart", n => { PeriodStart = n.GetDateTimeOffsetValue() ?? throw new InvalidOperationException("Input does not match specification"); } },
                 { "productionKwh", n => { ProductionKwh = n.GetDoubleValue(); } },
                 { "productionM3", n => { ProductionM3 = n.GetDoubleValue(); } },
             };

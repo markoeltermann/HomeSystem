@@ -2,7 +2,7 @@
   "descriptionHash": "28DBA18AFAF4CDA8760B39B8325560B878C345CFD1F650C748AA37CCEBFAD53B1D5D8002AD70CD77E870BD26F27B263754325832951FD17F1455D5BC06A7EC89",
   "descriptionLocation": "../swagger.json",
   "lockFileVersion": "1.0.0",
-  "kiotaVersion": "1.30.0",
+  "kiotaVersion": "1.31.0",
   "clientClassName": "EstfeedClient",
   "typeAccessModifier": "Public",
   "clientNamespaceName": "EstfeedConnector.Client",
