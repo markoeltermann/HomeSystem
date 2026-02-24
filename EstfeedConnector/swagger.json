@@ -1,0 +1,377 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAPI definition",
+    "version": "v0"
+  },
+  "servers": [
+    {
+      "url": "https://estfeed.elering.ee",
+      "description": "Generated server url"
+    }
+  ],
+  "tags": [
+    {
+      "name": "MeteringData",
+      "description": "  Metering data API provides operations for retrieving metering data of metering points for a specified period and time resolution.\n"
+    },
+    {
+      "name": "API Key metering point EICs",
+      "description": "API for retrieving the list of metering point EICs that has been connected with the given API key"
+    }
+  ],
+  "paths": {
+    "/api/public/v1/metering-point-eics": {
+      "get": {
+        "tags": [
+          "API Key metering point EICs"
+        ],
+        "summary": "Get metering point EICs associated with an API key",
+        "description": "  API endpoint for retrieving the list of metering point EICs connected with the given API key within the requested time interval.\n\n  This API is useful if the API key is associated with more than 10 metering points (or is dynamic and includes all\n  past, present and future metering points).\n  It allows retrieving the EIC list first, and then querying metering data in batches of up to 10 metering points\n  using `GET /api/public/v1/metering-data`.\n\n  The mandatory query parameters are: `startDateTime` and `endDateTime`.\n  The response includes all metering points associated with the API key between `startDateTime` and `endDateTime`.\n\n  Rate limit: max 1 request per 5 sec.\n",
+        "operationId": "findApiKeyMeteringPointEics",
+        "parameters": [
+          {
+            "name": "startDateTime",
+            "in": "query",
+            "description": "Start date with time\n\nValidations:\n  * ISO-8601 datetime\n  * Has to be smaller, than \"endDateTime\"\n",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2025-11-28T07:52:56.685Z"
+          },
+          {
+            "name": "endDateTime",
+            "in": "query",
+            "description": "End date with time\n\nValidations:\n  * ISO-8601 datetime\n  * Has to be bigger, than \"startDateTime\"\n",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2025-11-28T07:52:56.685Z"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "API keys metering points",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyMeteringPoint"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseV2"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseV2"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseV2"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/public/v1/metering-data": {
+      "get": {
+        "tags": [
+          "MeteringData"
+        ],
+        "summary": "  Get metering data in a machine-readable format.\n",
+        "description": "  An API through which the metering point owner or their fully authorized representative can retrieve their metering\n  data in a machine-readable format.\n\n  Rate limit: max 1 request per 5 sec.\n",
+        "operationId": "findMeteringData",
+        "parameters": [
+          {
+            "name": "startDateTime",
+            "in": "query",
+            "description": "Metering period beginning date and time.\n\nValidation\n* ISO-8601 datetime\n* Has to be smaller, than \"endDateTime\"\n* Maximum period can be up to 31 days\n",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2022-12-01T00:00:00.000Z"
+          },
+          {
+            "name": "endDateTime",
+            "in": "query",
+            "description": "Metering period end date and time.\n\nValidation\n* ISO-8601 datetime\n* Has to be bigger, than \"startDateTime\"\n* Maximum period can be up to 31 days\n",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2025-11-28T07:52:56.685Z"
+          },
+          {
+            "name": "resolution",
+            "in": "query",
+            "description": "Resolution for the metering data.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "fifteen_minutes",
+                "one_hour",
+                "one_day",
+                "one_week",
+                "one_month",
+                "one_year"
+              ]
+            }
+          },
+          {
+            "name": "meteringPointEics",
+            "in": "query",
+            "description": "Metering point EICs\n\nup to 10 metering point EIC-s can be in one request\nIf metering points are not specified as a parameter, the API returns data for all metering points accessible with the API key.\nIf the API key grants access to more than 10 metering points, a query without specifying metering points will fail\n(due to the maximum limit of 10 metering points).\n",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metering data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyMeterDataDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseV2"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseV2"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseV2"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ErrorResponseV2": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID of the error message"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human readable error text"
+          },
+          "code": {
+            "type": "string",
+            "description": "Code of the error"
+          },
+          "traceId": {
+            "type": "string",
+            "description": "Unique identifier. Helps to find the associated logs"
+          },
+          "args": {
+            "type": "array",
+            "description": "can be empty",
+            "items": {
+
+            }
+          }
+        },
+        "required": [
+          "args",
+          "code",
+          "id",
+          "message",
+          "traceId"
+        ]
+      },
+      "ApiKeyMeteringPoint": {
+        "type": "object",
+        "description": "API key metering point",
+        "properties": {
+          "eic": {
+            "type": "string",
+            "description": "Metering point EIC"
+          },
+          "commodityType": {
+            "type": "string",
+            "description": "Metering point commodity type",
+            "enum": [
+              "ELECTRICITY",
+              "NATURAL_GAS"
+            ]
+          },
+          "periods": {
+            "type": "array",
+            "description": "Periods",
+            "items": {
+              "$ref": "#/components/schemas/PeriodDto"
+            }
+          }
+        },
+        "required": [
+          "commodityType",
+          "eic",
+          "periods"
+        ]
+      },
+      "PeriodDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Shows the start date from which the data owner has the right to access metering data from this metering point\n(linked to the validity of the grid agreement).\nThere may be multiple periods (from-to) for metering point EIC within requested period\n"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Shows the end date until which the data owner has the right to access metering data from this metering point\n(linked to the validity of the grid agreement). \nIf the grid agreement is valid, then the end date will not be included in the query response\n"
+          }
+        }
+      },
+      "ApiKeyMeterDataAccountingIntervalDto": {
+        "type": "object",
+        "properties": {
+          "periodStart": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of the accounting interval interval begin time in UTC\n\nperiodStart indicates the start of the time period for which the metering data applies.\nThe next periodStart also marks the end of the previous period\n"
+          },
+          "consumptionKwh": {
+            "type": "number",
+            "format": "double",
+            "description": "Consumption in kWh"
+          },
+          "productionKwh": {
+            "type": "number",
+            "format": "double",
+            "description": "Production in kWh"
+          },
+          "consumptionM3": {
+            "type": "number",
+            "format": "double",
+            "description": "Consumption in m3 (used for gas metering data)"
+          },
+          "productionM3": {
+            "type": "number",
+            "format": "double",
+            "description": "Production in m3 (used for gas metering data)\n\nIt is included in the response only if data for the specific time interval is available (only for gas metering point(s)).\n"
+          }
+        },
+        "required": [
+          "periodStart"
+        ]
+      },
+      "ApiKeyMeterDataDto": {
+        "type": "object",
+        "properties": {
+          "meteringPointEic": {
+            "type": "string",
+            "description": "The metering point EIC code for which the metering data applies 16 characters",
+            "maxLength": 16,
+            "minLength": 16,
+            "pattern": "\\d{2}[XYZWTVA][A-Z0-9\\-]{12}[A-Z0-9]"
+          },
+          "accountingIntervals": {
+            "type": "array",
+            "description": "Accounting intervals",
+            "items": {
+              "$ref": "#/components/schemas/ApiKeyMeterDataAccountingIntervalDto"
+            }
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorResponseV2",
+            "description": "Error"
+          }
+        },
+        "required": [
+          "accountingIntervals",
+          "meteringPointEic"
+        ]
+      }
+    }
+  }
+}
