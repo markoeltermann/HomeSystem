@@ -42,6 +42,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddScoped<PointValueStoreAdapter>();
         services.AddScoped<SolarmanV5Adapter>();
         services.AddScoped<ConsumptionCalculatorRunner>();
+        services.AddScoped<EstfeedReader>();
 
         services.AddHttpClient();
     })

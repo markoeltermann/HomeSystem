@@ -109,6 +109,10 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                         {
                             RunReader<ConsumptionCalculatorRunner>(serviceProvider, wakeTime, tasks, device, stoppingToken);
                         }
+                        else if (device.Type == "estfeed")
+                        {
+                            RunReader<EstfeedReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
                     }
                 }
 
@@ -282,10 +286,13 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
         {
             try
             {
-                using var countScope = serviceProvider.CreateScope();
-                var dbContext = countScope.ServiceProvider.GetRequiredService<HomeSystemContext>();
-                var deviceCount = await dbContext.Devices.CountAsync(stoppingToken);
-                logger.LogInformation("Found {Count} devices", deviceCount);
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    using var countScope = serviceProvider.CreateScope();
+                    var dbContext = countScope.ServiceProvider.GetRequiredService<HomeSystemContext>();
+                    var deviceCount = await dbContext.Devices.CountAsync(stoppingToken);
+                    logger.LogInformation("Found {Count} devices", deviceCount);
+                }
                 return;
             }
             catch (Exception e)
@@ -318,6 +325,16 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
             if (d - now < TimeSpan.Zero)
             {
                 d = d.AddDays(1);
+            }
+
+            return d;
+        }
+        else if (deviceType == "estfeed")
+        {
+            var d = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc);
+            if (d - now < TimeSpan.Zero)
+            {
+                d = d.AddHours(1);
             }
 
             return d;

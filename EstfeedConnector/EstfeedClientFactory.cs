@@ -25,7 +25,7 @@ public static class EstfeedClientFactory
         if (tokenInfo?.AccessToken is null)
             return null;
 
-        httpClient.BaseAddress = new Uri("https://estfeed.elering.ee/");
+        //httpClient.BaseAddress = new Uri("https://estfeed.elering.ee/");
 
         var tokenProvider = new AccessTokenProvider(tokenInfo.AccessToken);
         var authProvider = new BaseBearerTokenAuthenticationProvider(tokenProvider);
