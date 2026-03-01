@@ -13,7 +13,7 @@
 		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.3" />
 		<PackageReference Include="Microsoft.ML" Version="5.0.0" />
 		<PackageReference Include="Microsoft.ML.Mkl.Components" Version="5.0.0" />
-		<PackageReference Include="NLog.Extensions.Logging" Version="6.1.1" />
+		<PackageReference Include="NLog.Extensions.Logging" Version="6.1.2" />
 		<PackageReference Include="TuyaNet" Version="1.0.3" />
 	</ItemGroup>
 

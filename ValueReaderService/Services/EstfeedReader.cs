@@ -27,14 +27,61 @@ public class EstfeedReader(ILogger<DeviceReader> logger, IHttpClientFactory http
 
         var response = await client.Api.Public.V1.MeteringData.GetAsync(x =>
         {
-            x.QueryParameters.StartDateTime = localTime.Date;
+            x.QueryParameters.StartDateTime = localTime.Date.AddDays(-1);
             x.QueryParameters.EndDateTime = localTime.Date.AddDays(1);
             x.QueryParameters.ResolutionAsGetResolutionQueryParameterType = GetResolutionQueryParameterType.Fifteen_minutes;
             x.QueryParameters.MeteringPointEics = [address.DeviceId];
         });
 
-        // TODO generate PointValue list based on response and devicePoints
+        if (response == null || response.Count != 1 || response[0].Error != null)
+        {
+            Logger.LogWarning("Estfeed response is empty, contains multiple metering points or has an error for device {DeviceId}", address.DeviceId);
+            return null;
+        }
 
-        return null;
+        var meteringData = response[0];
+        if (meteringData.AccountingIntervals == null || meteringData.AccountingIntervals.Count == 0)
+            return null;
+
+        var consumption15MinutePoint = devicePoints.FirstOrDefault(x => x.Type == "15-min-consumption");
+        var production15MinutePoint = devicePoints.FirstOrDefault(x => x.Type == "15-min-production");
+        var consumptionPowerPoint = devicePoints.FirstOrDefault(x => x.Type == "consumption-power");
+        var productionPowerPoint = devicePoints.FirstOrDefault(x => x.Type == "production-power");
+        var netPowerPoint = devicePoints.FirstOrDefault(x => x.Type == "net-power");
+
+        if (consumption15MinutePoint == null || production15MinutePoint == null || consumptionPowerPoint == null || productionPowerPoint == null || netPowerPoint == null)
+        {
+            throw new DeviceRunException("One or more required device points are missing.");
+        }
+
+        var result = new List<PointValue>();
+
+        foreach (var interval in meteringData.AccountingIntervals)
+        {
+            var utcStart = interval.PeriodStart.UtcDateTime;
+            var consumptionKwh = interval.ConsumptionKwh;
+            var productionKwh = interval.ProductionKwh;
+
+            // Power values (kWh per 15 min -> avg W: consumptionKwh * (60/15) * 1000 = consumptionKwh * 4000)
+            // Splitting 15 min interval into 3 x 5 min points to maintain high resolution data
+            var consumptionPower = consumptionKwh * 4000;
+            var productionPower = productionKwh * 4000;
+            var netPower = consumptionPower - productionPower;
+
+            for (int i = 0; i < 3; i++)
+            {
+                var pointTime = utcStart.AddMinutes(i * 5);
+
+                // 15-min values (repeated for each 5-min point in the window)
+                result.Add(new(consumption15MinutePoint, consumptionKwh?.ToString(InvariantCulture), pointTime));
+                result.Add(new(production15MinutePoint, productionKwh?.ToString(InvariantCulture), pointTime));
+
+                result.Add(new(consumptionPowerPoint, consumptionPower?.ToString(InvariantCulture), pointTime));
+                result.Add(new(productionPowerPoint, productionPower?.ToString(InvariantCulture), pointTime));
+                result.Add(new(netPowerPoint, netPower?.ToString(InvariantCulture), pointTime));
+            }
+        }
+
+        return result;
     }
 }

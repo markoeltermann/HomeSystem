@@ -5,8 +5,9 @@ using System.Globalization;
 using System.Text.Json;
 
 namespace ValueReaderService.Services;
+
 public class ModbusDeviceReader(
-    ILogger<BacnetDeviceReader> logger,
+    ILogger<ModbusDeviceReader> logger,
     IConfiguration configuration,
     IHttpClientFactory httpClientFactory) : DeviceReader(logger)
 {
