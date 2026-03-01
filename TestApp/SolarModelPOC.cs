@@ -12,6 +12,7 @@ using System.Reflection.Emit;
 using ValueReaderService.Services;
 
 namespace TestApp;
+
 public class SolarModelPOC(PointValueStoreAdapter pointValueStoreAdapter, HomeSystemContext dbContext) : BackgroundService
 {
     private static readonly CultureInfo InvariantCulture = CultureInfo.InvariantCulture;
@@ -343,9 +344,9 @@ public class SolarModelPOC(PointValueStoreAdapter pointValueStoreAdapter, HomeSy
             var pointValues = await pointValueStoreAdapter.Get(devicePoints.First(x => x.Type == pointType).Id, start, end);
             foreach (var pointValue in pointValues.Values!)
             {
-                if (!result.TryGetValue(pointValue.Timestamp!.Value.DateTime, out var solarModelPoint))
+                if (!result.TryGetValue(pointValue.Timestamp.DateTime, out var solarModelPoint))
                 {
-                    solarModelPoint = new SolarModelPoint { Timestamp = pointValue.Timestamp.Value.DateTime };
+                    solarModelPoint = new SolarModelPoint { Timestamp = pointValue.Timestamp.DateTime };
                     result[solarModelPoint.Timestamp] = solarModelPoint;
                 }
 
