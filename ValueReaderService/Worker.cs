@@ -1,3 +1,4 @@
+using CommonLibrary.Extensions;
 using Domain;
 using Microsoft.EntityFrameworkCore;
 using SharedServices;
@@ -149,7 +150,7 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                 var pointValues = await reader.ExecuteAsync(device, wakeTime, device.DevicePoints);
                 var logger = scope.ServiceProvider.GetRequiredService<ILogger<Worker>>();
                 logger.LogInformation("Read completed for device {DeviceId}, it returned {NumberOfPointValues} point values.", device.Id, pointValues?.Count.ToString() ?? "null");
-                if (pointValues is not null)
+                if (!pointValues.IsNullOrEmpty())
                 {
                     if (!reader.StorePointsWithReplace)
                     {

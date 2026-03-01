@@ -14,13 +14,97 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
 #if !DEBUG
         await Task.Delay(TimeSpan.FromSeconds(10));
 #endif
-        return await CalculateUsingPower(timestamp, devicePoints);
+        var result = new List<PointValue>();
+        result.AddRange(await CalculateDayPVEnergyUsingPower(timestamp, devicePoints) ?? []);
+        result.AddRange(await CalculateElectricityCosts(timestamp, devicePoints) ?? []);
+        return result;
     }
 
-    private async Task<IList<PointValue>?> CalculateUsingPower(DateTime timestamp, ICollection<DevicePoint> devicePoints)
+    private async Task<IList<PointValue>?> CalculateElectricityCosts(DateTime timestamp, ICollection<DevicePoint> devicePoints)
+    {
+        var estfeedDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "estfeed")
+            ?? throw new InvalidOperationException("Estfeed device not found");
+
+        var priceDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "electricity_price")
+            ?? throw new InvalidOperationException("Electricity price device not found");
+
+        var consPoint = estfeedDevice.DevicePoints.FirstOrDefault(x => x.Type == "15-min-consumption")
+            ?? throw new InvalidOperationException("Point '15-min-consumption' not found on estfeed device");
+        var prodPoint = estfeedDevice.DevicePoints.FirstOrDefault(x => x.Type == "15-min-production")
+            ?? throw new InvalidOperationException("Point '15-min-production' not found on estfeed device");
+        var buyPricePoint = priceDevice.DevicePoints.FirstOrDefault(x => x.Type == "total-buy-price")
+            ?? throw new InvalidOperationException("Point 'total-buy-price' not found on electricity price device");
+        var sellPricePoint = priceDevice.DevicePoints.FirstOrDefault(x => x.Type == "total-sell-price")
+            ?? throw new InvalidOperationException("Point 'total-sell-price' not found on electricity price device");
+
+        var dayCostPoint = devicePoints.FirstOrDefault(x => x.Type == "day-electricity-cost");
+        var monthCostPoint = devicePoints.FirstOrDefault(x => x.Type == "month-electricity-cost");
+
+        if (dayCostPoint == null && monthCostPoint == null)
+        {
+            return null;
+        }
+
+        var timestampLocal = timestamp.ToLocalTime();
+        var firstOfThisMonth = new DateOnly(timestampLocal.Year, timestampLocal.Month, 1);
+        var startDate = timestampLocal.Day <= 10 ? firstOfThisMonth.AddMonths(-1) : firstOfThisMonth;
+        var endDate = DateOnly.FromDateTime(timestampLocal);
+
+        var consValues = (await pointValueStoreAdapter.Get(consPoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
+        var prodValues = (await pointValueStoreAdapter.Get(prodPoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
+        var buyPriceValues = (await pointValueStoreAdapter.Get(buyPricePoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
+        var sellPriceValues = (await pointValueStoreAdapter.Get(sellPricePoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
+
+        var prodLookup = prodValues.ToDictionary(v => v.Timestamp, v => v.Value);
+        var buyPriceLookup = buyPriceValues.ToDictionary(v => v.Timestamp, v => v.Value);
+        var sellPriceLookup = sellPriceValues.ToDictionary(v => v.Timestamp, v => v.Value);
+
+        var result = new List<PointValue>();
+        double monthAccumulatedCost = 0;
+        double dayAccumulatedCost = 0;
+
+        foreach (var consReading in consValues)
+        {
+            var ts = consReading.Timestamp;
+            if (ts > timestampLocal.AddSeconds(1)) break;
+
+            var intervalCons = (consReading.Value ?? 0) / 3.0; // Assume 15-min window is spread over three 5-min intervals
+            var intervalProd = (prodLookup.GetValueOrDefault(ts) ?? 0) / 3.0;
+            var buyPrice = buyPriceLookup.GetValueOrDefault(ts) ?? 0;
+            var sellPrice = sellPriceLookup.GetValueOrDefault(ts) ?? 0;
+
+            var intervalCost = (intervalCons * buyPrice) - (intervalProd * sellPrice);
+
+            dayAccumulatedCost += intervalCost;
+            monthAccumulatedCost += intervalCost;
+
+            if (dayCostPoint != null)
+            {
+                result.Add(new PointValue(dayCostPoint, dayAccumulatedCost.ToString("0.00", InvariantCulture), ts.UtcDateTime));
+            }
+
+            if (monthCostPoint != null)
+            {
+                result.Add(new PointValue(monthCostPoint, monthAccumulatedCost.ToString("0.00", InvariantCulture), ts.UtcDateTime));
+            }
+
+            if (ts.Hour == 0 && ts.Minute == 0 && ts.Second == 0)
+            {
+                dayAccumulatedCost = 0;
+                if (ts.Day == 1)
+                {
+                    monthAccumulatedCost = 0;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<IList<PointValue>?> CalculateDayPVEnergyUsingPower(DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
         var inverterDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "deye_inverter")
-                    ?? throw new InvalidOperationException("Inverter device not found");
+            ?? throw new InvalidOperationException("Inverter device not found");
 
         var solarModelDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "solar_model")
             ?? throw new InvalidOperationException("Solar model device not found");
@@ -40,8 +124,8 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
         var timestampLocal = timestamp.ToLocalTime();
         var date = DateOnly.FromDateTime(timestampLocal);
 
-        var pvInputPowerValues = (await pointValueStoreAdapter.Get(pvInputPowerPoint.Id, date, fiveMinResolution: true)).Values!;
-        var elevationValues = (await pointValueStoreAdapter.Get(solarElevationPoint.Id, date, fiveMinResolution: true)).Values!;
+        var pvInputPowerValues = (await pointValueStoreAdapter.Get(pvInputPowerPoint.Id, date, fiveMinResolution: true)).Values;
+        var elevationValues = (await pointValueStoreAdapter.Get(solarElevationPoint.Id, date, fiveMinResolution: true)).Values;
 
         var elevationLookup = elevationValues.ToDictionary(v => v.Timestamp, v => v.Value);
 
@@ -86,8 +170,8 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
         var timestampLocal = timestamp.ToLocalTime();
         var date = DateOnly.FromDateTime(timestampLocal);
 
-        var totalPvEnergyValues = (await pointValueStoreAdapter.Get(totalPvEnergyPoint.Id, date, fiveMinResolution: true)).Values!;
-        var elevationValues = (await pointValueStoreAdapter.Get(solarElevationPoint.Id, date, fiveMinResolution: true)).Values!;
+        var totalPvEnergyValues = (await pointValueStoreAdapter.Get(totalPvEnergyPoint.Id, date, fiveMinResolution: true)).Values;
+        var elevationValues = (await pointValueStoreAdapter.Get(solarElevationPoint.Id, date, fiveMinResolution: true)).Values;
 
         var elevationLookup = elevationValues.ToDictionary(v => v.Timestamp, v => v.Value);
 

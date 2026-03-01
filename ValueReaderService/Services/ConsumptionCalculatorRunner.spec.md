@@ -34,3 +34,21 @@ Calculate the energy production of a single day (starting from 0 at the beginnin
 - Returns a list of `PointValue` objects for the `day-pv-energy` point.
 - Each value is formatted to 2 decimal places (`0.00`).
 - The `StorePointsWithReplace` property is set to `true`, ensuring the day's history is updated/overwritten in the store with the newly calculated progression.
+
+## 5. Electricity Cost Calculation
+Calculates daily and monthly electricity costs (or income) based on consumption and production data.
+
+### 5.1 Dependencies
+- **Data Source**: `estfeed` device providing `15-min-consumption` and `15-min-production` (kWh).
+- **Pricing Data**: `electricity_price` device providing `total-buy-price` and `total-sell-price` (EUR/kWh).
+- **Target Points**: `day-electricity-cost` and `month-electricity-cost` on the current device.
+
+### 5.2 Workflow Logic
+- **Time Range**: Calculates starting from the 1st of the current month. If the current day is 10 or less, it calculates from the 1st of the previous month.
+- **Resolution**: Both input and output points use 5-minute resolution.
+- **Consumption/Production Modeling**: Even though source points represent 15-minute windows, they are provided at 5-minute intervals (filled in). The consumption/production is assumed to be evenly distributed within the 15-minute period, so each 5-minute interval accounts for 1/3 of the 15-minute value.
+- **Cost Calculation**: `IntervalCost = (IntervalConsumption * BuyPrice) - (IntervalProduction * SellPrice)`.
+- **Accumulation**:
+  - `day-electricity-cost` resets to 0 at the start of each day.
+  - `month-electricity-cost` resets to 0 at the start of each month.
+- **Output**: Returns cumulative cost time series formatted to 2 decimal places.
