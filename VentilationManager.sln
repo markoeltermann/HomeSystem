@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.3.11512.155 d18.3
+VisualStudioVersion = 18.3.11512.155
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{62230114-02E0-4479-B84C-C2CDF78375D4}"
 	ProjectSection(SolutionItems) = preProject
@@ -48,6 +48,11 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SolarmanV5Client", "SolarmanV5Client\SolarmanV5Client.csproj", "{3B94D370-BE4D-41F8-AA3F-806D28D1D93B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EstfeedConnector", "EstfeedConnector\EstfeedConnector.csproj", "{A0D1FED0-CA43-43C2-A3BF-330083578CAA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Copilot", "Copilot", "{A5106102-5634-4FCE-B6D1-18DC6CD28ED5}"
+	ProjectSection(SolutionItems) = preProject
+		.github\copilot-instructions.md = .github\copilot-instructions.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
