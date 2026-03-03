@@ -28,9 +28,9 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
         var priceDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "electricity_price")
             ?? throw new InvalidOperationException("Electricity price device not found");
 
-        var consPoint = estfeedDevice.DevicePoints.FirstOrDefault(x => x.Type == "15-min-consumption")
+        var consumptionPoint = estfeedDevice.DevicePoints.FirstOrDefault(x => x.Type == "15-min-consumption")
             ?? throw new InvalidOperationException("Point '15-min-consumption' not found on estfeed device");
-        var prodPoint = estfeedDevice.DevicePoints.FirstOrDefault(x => x.Type == "15-min-production")
+        var productionPoint = estfeedDevice.DevicePoints.FirstOrDefault(x => x.Type == "15-min-production")
             ?? throw new InvalidOperationException("Point '15-min-production' not found on estfeed device");
         var buyPricePoint = priceDevice.DevicePoints.FirstOrDefault(x => x.Type == "total-buy-price")
             ?? throw new InvalidOperationException("Point 'total-buy-price' not found on electricity price device");
@@ -50,48 +50,58 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
         var startDate = timestampLocal.Day <= 10 ? firstOfThisMonth.AddMonths(-1) : firstOfThisMonth;
         var endDate = DateOnly.FromDateTime(timestampLocal);
 
-        var consValues = (await pointValueStoreAdapter.Get(consPoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
-        var prodValues = (await pointValueStoreAdapter.Get(prodPoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
+        var consumptionValues = (await pointValueStoreAdapter.Get(consumptionPoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
+        var productionValues = (await pointValueStoreAdapter.Get(productionPoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
         var buyPriceValues = (await pointValueStoreAdapter.Get(buyPricePoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
         var sellPriceValues = (await pointValueStoreAdapter.Get(sellPricePoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
 
-        var prodLookup = prodValues.ToDictionary(v => v.Timestamp, v => v.Value);
+        var productionLookup = productionValues.ToDictionary(v => v.Timestamp, v => v.Value);
         var buyPriceLookup = buyPriceValues.ToDictionary(v => v.Timestamp, v => v.Value);
         var sellPriceLookup = sellPriceValues.ToDictionary(v => v.Timestamp, v => v.Value);
 
         var result = new List<PointValue>();
-        double monthAccumulatedCost = 0;
-        double dayAccumulatedCost = 0;
+        var monthAccumulatedCost = 0.0;
+        var dayAccumulatedCost = 0.0;
+        var isDayDataMissing = false;
 
-        foreach (var consReading in consValues)
+        foreach (var consumptionReading in consumptionValues)
         {
-            var ts = consReading.Timestamp;
-            if (ts > timestampLocal.AddSeconds(1)) break;
+            var readingTimestamp = consumptionReading.Timestamp;
+            if (readingTimestamp > timestampLocal.AddSeconds(1)) break;
 
-            var intervalCons = (consReading.Value ?? 0) / 3.0; // Assume 15-min window is spread over three 5-min intervals
-            var intervalProd = (prodLookup.GetValueOrDefault(ts) ?? 0) / 3.0;
-            var buyPrice = buyPriceLookup.GetValueOrDefault(ts) ?? 0;
-            var sellPrice = sellPriceLookup.GetValueOrDefault(ts) ?? 0;
+            var consumption = consumptionReading.Value;
+            var production = productionLookup.GetValueOrDefault(readingTimestamp);
 
-            var intervalCost = (intervalCons * buyPrice) - (intervalProd * sellPrice);
+            if (consumption == null || production == null)
+            {
+                isDayDataMissing = true;
+            }
+
+            var intervalConsumption = (consumption ?? 0) / 3.0;
+            var intervalProduction = (production ?? 0) / 3.0;
+            var buyPrice = buyPriceLookup.GetValueOrDefault(readingTimestamp) ?? 0;
+            var sellPrice = sellPriceLookup.GetValueOrDefault(readingTimestamp) ?? 0;
+
+            var intervalCost = (intervalConsumption * buyPrice) - (intervalProduction * sellPrice);
 
             dayAccumulatedCost += intervalCost;
             monthAccumulatedCost += intervalCost;
 
             if (dayCostPoint != null)
             {
-                result.Add(new PointValue(dayCostPoint, dayAccumulatedCost.ToString("0.00", InvariantCulture), ts.UtcDateTime));
+                result.Add(new PointValue(dayCostPoint, isDayDataMissing ? null : dayAccumulatedCost.ToString("0.00", InvariantCulture), readingTimestamp.UtcDateTime));
             }
 
             if (monthCostPoint != null)
             {
-                result.Add(new PointValue(monthCostPoint, monthAccumulatedCost.ToString("0.00", InvariantCulture), ts.UtcDateTime));
+                result.Add(new PointValue(monthCostPoint, monthAccumulatedCost.ToString("0.00", InvariantCulture), readingTimestamp.UtcDateTime));
             }
 
-            if (ts.Hour == 0 && ts.Minute == 0 && ts.Second == 0)
+            if (readingTimestamp.Hour == 0 && readingTimestamp.Minute == 0 && readingTimestamp.Second == 0)
             {
                 dayAccumulatedCost = 0;
-                if (ts.Day == 1)
+                isDayDataMissing = false;
+                if (readingTimestamp.Day == 1)
                 {
                     monthAccumulatedCost = 0;
                 }
@@ -124,13 +134,13 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
         var timestampLocal = timestamp.ToLocalTime();
         var date = DateOnly.FromDateTime(timestampLocal);
 
-        var pvInputPowerValues = (await pointValueStoreAdapter.Get(pvInputPowerPoint.Id, date, fiveMinResolution: true)).Values;
-        var elevationValues = (await pointValueStoreAdapter.Get(solarElevationPoint.Id, date, fiveMinResolution: true)).Values;
+        var pvInputPowerValues = (await pointValueStoreAdapter.Get(pvInputPowerPoint.Id, date, fiveMinResolution: true)).Values!;
+        var elevationValues = (await pointValueStoreAdapter.Get(solarElevationPoint.Id, date, fiveMinResolution: true)).Values!;
 
         var elevationLookup = elevationValues.ToDictionary(v => v.Timestamp, v => v.Value);
 
         var result = new List<PointValue>();
-        double accumulatedEnergyKWh = 0;
+        var accumulatedEnergyKWh = 0.0;
 
         foreach (var pvReading in pvInputPowerValues)
         {
@@ -170,8 +180,8 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
         var timestampLocal = timestamp.ToLocalTime();
         var date = DateOnly.FromDateTime(timestampLocal);
 
-        var totalPvEnergyValues = (await pointValueStoreAdapter.Get(totalPvEnergyPoint.Id, date, fiveMinResolution: true)).Values;
-        var elevationValues = (await pointValueStoreAdapter.Get(solarElevationPoint.Id, date, fiveMinResolution: true)).Values;
+        var totalPvEnergyValues = (await pointValueStoreAdapter.Get(totalPvEnergyPoint.Id, date, fiveMinResolution: true)).Values!;
+        var elevationValues = (await pointValueStoreAdapter.Get(solarElevationPoint.Id, date, fiveMinResolution: true)).Values!;
 
         var elevationLookup = elevationValues.ToDictionary(v => v.Timestamp, v => v.Value);
 
@@ -206,10 +216,10 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
         }
         else
         {
-            var firstValValue = totalPvEnergyValues[anchorPoints[0]].Value!.Value;
+            var firstValue = totalPvEnergyValues[anchorPoints[0]].Value!.Value;
 
-            int firstAnchorIdx = anchorPoints[0];
-            for (int k = 0; k < firstAnchorIdx; k++)
+            int firstAnchorIndex = anchorPoints[0];
+            for (int k = 0; k < firstAnchorIndex; k++)
             {
                 result.Add(new PointValue(dayPvEnergyPoint, "0.00", totalPvEnergyValues[k].Timestamp.UtcDateTime));
             }
@@ -222,33 +232,33 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
                 var startPoint = totalPvEnergyValues[startIdx];
                 var endPoint = totalPvEnergyValues[endIdx];
 
-                double startVal = startPoint.Value!.Value - firstValValue;
-                double endVal = endPoint.Value!.Value - firstValValue;
+                var startValue = startPoint.Value!.Value - firstValue;
+                var endValue = endPoint.Value!.Value - firstValue;
 
                 for (int k = startIdx; k < endIdx; k++)
                 {
                     var currentPoint = totalPvEnergyValues[k];
-                    double interpVal;
+                    var interpolatedValue = 0.0;
                     if (startPoint.Timestamp == endPoint.Timestamp)
                     {
-                        interpVal = startVal;
+                        interpolatedValue = startValue;
                     }
                     else
                     {
-                        interpVal = startVal + (endVal - startVal) * (currentPoint.Timestamp - startPoint.Timestamp).TotalSeconds / (endPoint.Timestamp - startPoint.Timestamp).TotalSeconds;
+                        interpolatedValue = startValue + (endValue - startValue) * (currentPoint.Timestamp - startPoint.Timestamp).TotalSeconds / (endPoint.Timestamp - startPoint.Timestamp).TotalSeconds;
                     }
-                    result.Add(new PointValue(dayPvEnergyPoint, interpVal.ToString("0.00", InvariantCulture), currentPoint.Timestamp.UtcDateTime));
+                    result.Add(new PointValue(dayPvEnergyPoint, interpolatedValue.ToString("0.00", InvariantCulture), currentPoint.Timestamp.UtcDateTime));
                 }
             }
 
-            int lastAnchorIdx = anchorPoints[^1];
-            double lastVal = totalPvEnergyValues[lastAnchorIdx].Value!.Value - firstValValue;
-            for (int k = lastAnchorIdx; k < totalPvEnergyValues.Count; k++)
+            int lastAnchorIndex = anchorPoints[^1];
+            var lastValue = totalPvEnergyValues[lastAnchorIndex].Value!.Value - firstValue;
+            for (int k = lastAnchorIndex; k < totalPvEnergyValues.Count; k++)
             {
                 if (totalPvEnergyValues[k].Timestamp > timestampLocal)
                     break;
 
-                result.Add(new PointValue(dayPvEnergyPoint, lastVal.ToString("0.00", InvariantCulture), totalPvEnergyValues[k].Timestamp.UtcDateTime));
+                result.Add(new PointValue(dayPvEnergyPoint, lastValue.ToString("0.00", InvariantCulture), totalPvEnergyValues[k].Timestamp.UtcDateTime));
             }
         }
 

@@ -48,7 +48,9 @@ Calculates daily and monthly electricity costs (or income) based on consumption 
 - **Resolution**: Both input and output points use 5-minute resolution.
 - **Consumption/Production Modeling**: Even though source points represent 15-minute windows, they are provided at 5-minute intervals (filled in). The consumption/production is assumed to be evenly distributed within the 15-minute period, so each 5-minute interval accounts for 1/3 of the 15-minute value.
 - **Cost Calculation**: `IntervalCost = (IntervalConsumption * BuyPrice) - (IntervalProduction * SellPrice)`.
-- **Accumulation**:
-  - `day-electricity-cost` resets to 0 at the start of each day.
-  - `month-electricity-cost` resets to 0 at the start of each month.
+- **Resets**:
+  - `day-electricity-cost` and `month-electricity-cost` values at `00:00` represent the final total of the preceding day/month. Accumulation resets just after this (at the 00:05 interval).
+- **Data Gap Handling**:
+  - **Daily Cost**: If either consumption or production data is missing (null) for an interval, the `day-electricity-cost` becomes null for the remainder of that day to avoid misleading trends.
+  - **Monthly Cost**: Missing data intervals are treated as zero cost contribution, allowing the monthly accumulation to continue up to the current time even if some daily data is partially missing.
 - **Output**: Returns cumulative cost time series formatted to 2 decimal places.
