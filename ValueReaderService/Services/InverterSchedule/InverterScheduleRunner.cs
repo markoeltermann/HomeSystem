@@ -95,7 +95,7 @@ public class InverterScheduleRunner(
                 maxDischargeCurrent = inverterSettings.BatteryDischargeCurrentBelow30;
 
             var maxChargeCurrent = isAdaptiveSellEnabled && (currentActualBatteryLevel - currentBatteryLevel >= 5.0) ? 0 : inverterSettings.BatteryChargeCurrent;
-            if (maxChargeCurrent > 1 && currentActualBatteryLevel >= 99 && currentGridChargeEnable > 0)
+            if (maxChargeCurrent > 1 && currentActualBatteryLevel >= 99)
                 maxChargeCurrent = 1;
 
             settings = new InverterSettingsUpdateDto
