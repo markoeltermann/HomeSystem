@@ -1,13 +1,17 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using DynessConnector;
+using DynessConnector.Client.Models;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
+using Microsoft.Kiota.Http.HttpClientLibrary;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace TestApp;
 
-public class DynessApiTester(IHttpClientFactory httpClientFactory, ILogger<DynessApiTester> logger) : BackgroundService
+public class DynessApiTester(IHttpClientFactory httpClientFactory, ILogger<DynessApiTester> logger, IConfiguration configuration) : BackgroundService
 {
     #region Copilot generated version
     private const string BaseUrl = "http://open-api.dyness.com/openapi/ems-device";
@@ -68,38 +72,43 @@ public class DynessApiTester(IHttpClientFactory httpClientFactory, ILogger<Dynes
 
     #region Converted from java example
 
-    public static async Task Main(string[] args)
-    {
-        // API Credentials
-        string key = "";
-        string keySecret = "";
-
-        // Request Body
-        var map = new Dictionary<string, object>
-                {
-                    { "pageNo", 1 },
-                    { "pageSize", 10 }
-                };
-        string path = "/v1/device/getLastPowerDataBySn";
-        await CallApi2Async(key, keySecret, map, path, null);
-    }
-
     private static async Task<string> CallApi2Async(string key, string keySecret, Dictionary<string, object>? map, string path, string? queryParams)
     {
-        string body = map == null ? "{}" : JsonConvert.SerializeObject(map);
+        //string body = JsonConvert.SerializeObject(map);
+        string body = map == null ? "" : JsonSerializer.Serialize(map);
+        //var body = "";
         string contentMd5 = GetDigest(body);
         string date = GetGMTTime();
 
-        // Constructing the string to sign
-        string param = (map == null ? "GET" : "POST") + "\n" +
-                       contentMd5 + "\n" +
-                       "application/json" + "\n" +
-                       //"null" + "\n" +
-                       //"" + "\n" +
-                       //"" + "\n" +
-                       date + "\n" +
-                       path +
-                       (string.IsNullOrEmpty(queryParams) ? "" : "\n" + queryParams);
+        string param;
+        if (map != null)
+        {
+            // Constructing the string to sign
+            param = (map == null ? "GET" : "POST") + "\n" +
+                contentMd5 + "\n" +
+                "application/json" + "\n" +
+                //"text/plain" + "\n" +
+                //"null" + "\n" +
+                //"" + "\n" +
+                //"" + "\n" +
+                date + "\n" +
+                path + //"\n" +
+                (string.IsNullOrEmpty(queryParams) ? "" : "\n" + queryParams);
+        }
+        else
+        {
+            param = "GET" + "\n" +
+                //contentMd5 + "\n" +
+                //"application/json" + "\n" +
+                //"text/plain" + "\n" +
+                //"null" + "\n" +
+                "" + "\n" +
+                "" + "\n" +
+                date + "\n" +
+                path + //"\n" +
+                (string.IsNullOrEmpty(queryParams) ? "" : "?" + queryParams);
+            //queryParams;
+        }
 
         string sign = HmacSHA1Encrypt(param, keySecret);
         string url = "https://open-api.dyness.com/openapi/ems-device" + path + (string.IsNullOrEmpty(queryParams) ? string.Empty : "?" + queryParams);
@@ -113,13 +122,14 @@ public class DynessApiTester(IHttpClientFactory httpClientFactory, ILogger<Dynes
         request.Headers.TryAddWithoutValidation("Date", date);
 
         // Setting Content
-        //if (map != null)
+        if (map != null)
         {
             var content = new StringContent(body, Encoding.UTF8, "application/json");
             //content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
             //{
             //    CharSet = "UTF-8"
             //};
+            //content.Headers.TryAddWithoutValidation("Content-MD5", contentMd5);
             request.Content = content;
         }
         //else
@@ -173,43 +183,91 @@ public class DynessApiTester(IHttpClientFactory httpClientFactory, ILogger<Dynes
 
     #endregion
 
+    //protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    //{
+    //    var apiId = configuration["DynessAppId"] ?? throw new InvalidOperationException();
+    //    var apiSecret = configuration["DynessAppSecret"] ?? throw new InvalidOperationException();
+
+    //    //const string endpoint = "/v1/device/storage/list";
+    //    //const string endpoint = "/v1​/device​/getBindDeviceSnListByCurrentUserId";
+    //    const string endpoint = "/v1/device/realTime/data";
+    //    //const string endpoint = "/v1/device/bindSn";
+    //    //const string endpoint = "/v1/device/unBindSn";
+    //    //const string endpoint = "/v1/device/read";
+    //    //const string endpoint = "/v1/group/getGroupList";
+    //    //const string endpoint = "/v1/device/singleGetChargeDischargeConfig";
+    //    //const string endpoint = "/v1/one/realTime";
+    //    //const string endpoint = "/v1/device​/getLastPowerDataBySn";
+    //    //const string payload = """
+    //    //    {
+    //    //      "deviceSn": "R07E7C46681A0E84-BDU",
+    //    //      "deviceType": null,
+    //    //      "pageNum": 1,
+    //    //      "pageSize": 10
+    //    //    }
+    //    //    """;
+
+    //    var payload = new Dictionary<string, object>
+    //    {
+    //        ["deviceSn"] = "R07E7C46681A0E84-BDU-01",
+    //        //["dongleSn"] = "R07E7C46681A0E84",
+    //        //["endAddress"] = 853,
+    //        //["startAddress"] = 853,
+    //        //["checkCode"] = "123456789",
+    //        //["deviceType"] = null,
+    //        //["pageNum"] = 1,
+    //        //["pageSize"] = 10
+    //    };
+
+    //    //logger.LogInformation("Calling Dyness API: {Endpoint}", endpoint);
+    //    //var response = await CallApiAsync(endpoint, payload, apiId, apiSecret, stoppingToken);
+    //    var response = await CallApi2Async(apiId, apiSecret, payload, endpoint, null);
+    //    //var response = await CallApi2Async(apiId, apiSecret, null, endpoint, null);
+    //    //logger.LogInformation("API Response for {Endpoint}: {Response}", endpoint, response);
+    //}
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Example: Get bind device SN list
-        const string apiId = "133062721551939";
-        const string apiSecret = "4a6edca5cb46147f9f75f5c4c3bb78a";
-        //const string endpoint = "/v1/device/storage/list";
-        //const string endpoint = "/v1​/device​/getBindDeviceSnListByCurrentUserId";
-        const string endpoint = "/v1/device/realTime/data";
-        //const string endpoint = "/v1/device/bindSn";
-        //const string endpoint = "/v1/device/unBindSn";
-        //const string endpoint = "/v1/device/read";
-        //const string endpoint = "/v1/one/realTime";
-        //const string payload = """
-        //    {
-        //      "deviceSn": "R07E7C46681A0E84-BDU",
-        //      "deviceType": null,
-        //      "pageNum": 1,
-        //      "pageSize": 10
-        //    }
-        //    """;
+        var apiId = configuration["DynessAppId"] ?? throw new InvalidOperationException();
+        var apiSecret = configuration["DynessAppSecret"] ?? throw new InvalidOperationException();
 
-        var payload = new Dictionary<string, object>
+        //var httpClient = new HttpClient();
+
+        var handlers = KiotaClientFactory.CreateDefaultHandlers();
+        handlers.Add(new KiotaDebugHandler());
+
+        var httpClient = KiotaClientFactory.Create(handlers);
+
+        var client = DynessClientFactory.Create(httpClient, apiId, apiSecret);
+
+        //var bindResult = await client.V1.Device.BindSn.PostAsync(new RequestDeviceBindRelationDto
+        //{
+        //    DeviceSn = "R07E7C46681A0E84-BDU-03",
+        //    CheckCode = "123456789"
+        //}, cancellationToken: stoppingToken);
+
+        var result = await client.V1.Device.RealTime.Data.PostAsync(new RequestOpenApiPointDto
         {
-            ["deviceSn"] = "R07E7C46681A0E84-BDU",
-            //["dongleSn"] = "R07E7C46681A0E84",
-            //["startAddress"] = "100",
-            //["endAddress"] = "110",
-            //["checkCode"] = "123456789",
-            //["deviceType"] = null,
-            //["pageNum"] = 1,
-            //["pageSize"] = 10
-        };
+            DeviceSn = "R07E7C46681A0E84-BDU"
+            //DeviceSn = "R07E7C46681A0E84"
+        },
+        cancellationToken: stoppingToken);
 
-        //logger.LogInformation("Calling Dyness API: {Endpoint}", endpoint);
-        //var response = await CallApiAsync(endpoint, payload, apiId, apiSecret, stoppingToken);
-        var response = await CallApi2Async(apiId, apiSecret, payload, endpoint, null);
-        //var response = await CallApi2Async(apiId, apiSecret, null, endpoint, null);
-        //logger.LogInformation("API Response for {Endpoint}: {Response}", endpoint, response);
+        var json = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+
+        File.WriteAllText("battery-2026-03-21-1.json", json);
+    }
+
+    public class KiotaDebugHandler : DelegatingHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            //var json = await request.Content.ReadAsStringAsync();
+
+            var response = await base.SendAsync(request, cancellationToken);
+
+            // You can also inspect the response here before it goes back to Kiota
+            return response;
+        }
     }
 }
