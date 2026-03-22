@@ -114,6 +114,10 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                         {
                             RunReader<EstfeedReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
                         }
+                        else if (device.Type == "dyness_api")
+                        {
+                            RunReader<DynessApiDeviceReader>(serviceProvider, wakeTime, tasks, device, stoppingToken);
+                        }
                     }
                 }
 

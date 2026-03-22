@@ -1,4 +1,5 @@
-﻿using DynessConnector;
+﻿using Domain;
+using DynessConnector;
 using DynessConnector.Client.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -8,10 +9,11 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace TestApp;
 
-public class DynessApiTester(IHttpClientFactory httpClientFactory, ILogger<DynessApiTester> logger, IConfiguration configuration) : BackgroundService
+public class DynessApiTester(IHttpClientFactory httpClientFactory, ILogger<DynessApiTester> logger, IConfiguration configuration, HomeSystemContext dbContext) : BackgroundService
 {
     #region Copilot generated version
     private const string BaseUrl = "http://open-api.dyness.com/openapi/ems-device";
@@ -256,6 +258,68 @@ public class DynessApiTester(IHttpClientFactory httpClientFactory, ILogger<Dynes
         var json = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
 
         File.WriteAllText("battery-2026-03-21-1.json", json);
+
+        //var json = File.ReadAllText("battery-01-en-filtered.json");
+        //var data = JsonSerializer.Deserialize<DynessPointContainer>(json);
+
+        //var device = await dbContext.Devices.FirstOrDefaultAsync(x => x.Type == "dyness_api" && x.SubType == "module-3");
+
+        //var devicePoints = new List<DevicePoint>();
+
+        //foreach (var dynessPoint in data!.Data!)
+        //{
+        //    var dp = new DevicePoint
+        //    {
+        //        DeviceId = device!.Id,
+        //        Address = dynessPoint.PointId!,
+        //        IsFrequentReadEnabled = false,
+        //        Resolution = 5,
+        //        Name = dynessPoint.PointNameEn.ToLower().Capitalise(),
+        //    };
+
+        //    //if (dp.Name.Contains("voltage", StringComparison.OrdinalIgnoreCase))
+        //    //{
+        //    //    dp.DataTypeId = 1;
+        //    //    dp.UnitId = 3;
+        //    //}
+        //    //else if (dp.Name.Contains("current", StringComparison.OrdinalIgnoreCase))
+        //    //{
+        //    //    dp.DataTypeId = 1;
+        //    //    dp.UnitId = 5;
+        //    //}
+        //    //else if (dp.Name.Contains("balancing", StringComparison.OrdinalIgnoreCase))
+        //    //{
+        //    //    dp.DataTypeId = 3;
+        //    //}
+        //    //else
+        //    //{
+        //    //    if (dynessPoint.PointNameEn is "SOC" or "SOH")
+        //    //    {
+        //    //        dp.UnitId = 1;
+        //    //    }
+        //    //    dp.DataTypeId = 2;
+        //    //}
+
+        //    if (dp.Name.Contains("voltage", StringComparison.OrdinalIgnoreCase))
+        //    {
+        //        dp.DataTypeId = 1;
+        //        dp.UnitId = 3;
+        //    }
+        //    else if (dp.Name.Contains("temperature", StringComparison.OrdinalIgnoreCase))
+        //    {
+        //        dp.DataTypeId = 1;
+        //        dp.UnitId = 2;
+        //    }
+        //    else
+        //    {
+        //        throw new InvalidOperationException();
+        //    }
+
+        //    devicePoints.Add(dp);
+        //}
+
+        //dbContext.DevicePoints.AddRange(devicePoints);
+        //await dbContext.SaveChangesAsync();
     }
 
     public class KiotaDebugHandler : DelegatingHandler
@@ -269,5 +333,18 @@ public class DynessApiTester(IHttpClientFactory httpClientFactory, ILogger<Dynes
             // You can also inspect the response here before it goes back to Kiota
             return response;
         }
+    }
+
+    private class DynessPointContainer
+    {
+        public DynessPoint[] Data { get; set; } = null!;
+    }
+
+    private class DynessPoint
+    {
+        public string PointId { get; set; } = null!;
+
+        [JsonPropertyName("pointNameEn")]
+        public string PointNameEn { get; set; } = null!;
     }
 }

@@ -43,6 +43,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddScoped<SolarmanV5Adapter>();
         services.AddScoped<ConsumptionCalculatorRunner>();
         services.AddScoped<EstfeedReader>();
+        services.AddScoped<DynessApiDeviceReader>();
 
         services.AddHttpClient();
     })
