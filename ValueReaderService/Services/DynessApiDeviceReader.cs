@@ -65,8 +65,6 @@ public class DynessApiDeviceReader(
             result.Add(new PointValue(point, value));
         }
 
-        return null;
-
         return result;
     }
 }
