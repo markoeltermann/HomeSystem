@@ -1,7 +1,9 @@
 using Domain;
 using Microsoft.EntityFrameworkCore;
 using NLog.Extensions.Logging;
+using Polly;
 using SharedServices;
+using System.Threading.RateLimiting;
 using ValueReaderService;
 using ValueReaderService.Services;
 using ValueReaderService.Services.AirobotThermostat;
@@ -43,8 +45,31 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddScoped<SolarmanV5Adapter>();
         services.AddScoped<ConsumptionCalculatorRunner>();
         services.AddScoped<EstfeedReader>();
+        services.AddScoped<DynessApiDeviceReader>();
 
         services.AddHttpClient();
+        services.AddHttpClient(nameof(DynessApiDeviceReader))
+            .AddResilienceHandler("dyness", builder =>
+            {
+                builder.AddRateLimiter(new SlidingWindowRateLimiter(new SlidingWindowRateLimiterOptions
+                {
+                    PermitLimit = 1,
+                    Window = TimeSpan.FromSeconds(1),
+                    SegmentsPerWindow = 1,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 10,
+                }));
+
+                //builder.AddRetry(new HttpRetryStrategyOptions
+                //{
+                //    ShouldHandle = args => ValueTask.FromResult(
+                //        args.Outcome.Result?.StatusCode == HttpStatusCode.InternalServerError),
+                //    MaxRetryAttempts = 3,
+                //    BackoffType = DelayBackoffType.Exponential,
+                //    Delay = TimeSpan.FromSeconds(2),
+                //    UseJitter = true,
+                //});
+            });
     })
     .UseWindowsService(options =>
     {

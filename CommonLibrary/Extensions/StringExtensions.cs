@@ -1,8 +1,10 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
 namespace CommonLibrary.Extensions;
+
 public static class StringExtensions
 {
+    [return: NotNullIfNotNull(nameof(s))]
     public static string? Capitalise(this string? s)
     {
         if (string.IsNullOrEmpty(s) || char.IsUpper(s[0])) return s;

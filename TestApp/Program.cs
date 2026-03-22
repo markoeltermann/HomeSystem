@@ -35,7 +35,8 @@ IHost host = Host.CreateDefaultBuilder(args)
             options.UseNpgsql(context.Configuration.GetConnectionString("HomeSystemContext")));
 
         //services.AddHostedService<SolarModelPOC>();
-        services.AddHostedService<MyUplinkEnumValueMigrator>();
+        //services.AddHostedService<MyUplinkEnumValueMigrator>();
+        services.AddHostedService<DynessApiTester>();
         services.AddScoped<PointValueStoreAdapter>();
         services.AddSingleton<ConfigModel>();
 
