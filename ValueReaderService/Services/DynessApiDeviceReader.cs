@@ -29,20 +29,33 @@ public class DynessApiDeviceReader(
 
         var response = await client.V1.Device.RealTime.Data.PostAsync(new RequestOpenApiPointDto { DeviceSn = address.DeviceId });
         if (response?.Data is null || response.Data.Count == 0)
+        {
+            Logger.LogInformation("No point data received from Dyness API for device {DeviceId}", address.DeviceId);
             return null;
+        }
 
         var timestampPoint = response.Data.FirstOrDefault(x => x.PointId == TimestampPointId);
         if (timestampPoint?.PointValue is null)
+        {
+            Logger.LogInformation("Timestamp point not found in Dyness API response for device {DeviceId}", address.DeviceId);
             return null;
+        }
 
         if (!DateTime.TryParseExact(timestampPoint.PointValue, TimestampFormat,
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
                 out var dataTimestamp))
+        {
+            Logger.LogInformation("Invalid timestamp format in Dyness API response for device {DeviceId}: {TimestampValue}", address.DeviceId, timestampPoint.PointValue);
             return null;
+        }
 
         if (timestamp.ToUniversalTime() - dataTimestamp > MaxDataAge)
+        {
+            Logger.LogInformation("Data from Dyness API for device {DeviceId} is too old. Data timestamp: {DataTimestamp}, Current timestamp: {CurrentTimestamp}",
+                address.DeviceId, dataTimestamp, timestamp);
             return null;
+        }
 
         var result = new List<PointValue>(devicePoints.Count);
         foreach (var point in devicePoints)
