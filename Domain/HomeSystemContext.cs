@@ -70,6 +70,7 @@ public partial class HomeSystemContext : DbContext
                 .HasMaxLength(255)
                 .HasColumnName("address");
             entity.Property(e => e.DataTypeId).HasColumnName("data_type_id");
+            entity.Property(e => e.DecimalPlaces).HasColumnName("decimal_places");
             entity.Property(e => e.DeviceId).HasColumnName("device_id");
             entity.Property(e => e.IsFrequentReadEnabled).HasColumnName("is_frequent_read_enabled");
             entity.Property(e => e.Name)

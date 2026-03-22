@@ -23,6 +23,8 @@ public partial class DevicePoint
 
     public int? Resolution { get; set; }
 
+    public short? DecimalPlaces { get; set; }
+
     public virtual DataType DataType { get; set; } = null!;
 
     public virtual Device Device { get; set; } = null!;

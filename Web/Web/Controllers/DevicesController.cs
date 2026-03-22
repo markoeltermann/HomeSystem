@@ -25,6 +25,7 @@ public class DevicesController(HomeSystemContext context) : ControllerBase
                     DataTypeName = dp.DataType.Name,
                     Unit = dp.Unit!.Name,
                     Resolution = dp.Resolution,
+                    DecimalPlaces = dp.DecimalPlaces,
                 }).ToArray()
             })
             .ToArrayAsync();

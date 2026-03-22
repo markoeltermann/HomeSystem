@@ -448,7 +448,7 @@
                 new Tick(105, string.Empty, true),
                 new Tick(108, string.Empty, false),
                 new Tick(110, string.Empty, false),
-            ];
+    ];
             leftAxis.TickGenerator = new ScottPlot.TickGenerators.NumericManual(ticks);
 
             var grid = Plot.Grid;
@@ -518,7 +518,11 @@
     private void SetSelectedValue(DevicePointDto point, ValueContainerDto values, int index)
     {
         var value = values.Values[index];
-        var digits = point.DataTypeName == "Float" ? point.Unit == "EUR/kWh" ? 4 : 1 : 0;
+        var digits = 0;
+        if (point.DataTypeName == "Float")
+        {
+            digits = point.DecimalPlaces ?? 1;
+        }
         point.SelectedValue = value.StringValue ?? value.Value?.ToString("F" + digits) ?? "-";
     }
 
