@@ -54,7 +54,7 @@ IHost host = Host.CreateDefaultBuilder(args)
                 builder.AddRateLimiter(new SlidingWindowRateLimiter(new SlidingWindowRateLimiterOptions
                 {
                     PermitLimit = 1,
-                    Window = TimeSpan.FromSeconds(1),
+                    Window = TimeSpan.FromMilliseconds(1500),
                     SegmentsPerWindow = 1,
                     QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                     QueueLimit = 10,
