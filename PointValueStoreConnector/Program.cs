@@ -28,8 +28,7 @@ builder.Services.Configure<RouteOptions>(options =>
 
 builder.Services.AddControllers();
 
-builder.Services.AddDbContext<HomeSystemContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("HomeSystemContext")));
+builder.Services.AddHomeSystemContext(builder.Configuration);
 
 builder.Services.AddSingleton<PointValueStore>();
 

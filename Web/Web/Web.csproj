@@ -13,7 +13,7 @@
 		<ProjectReference Include="..\..\WebCommonLibrary\WebCommonLibrary.csproj" />
 		<ProjectReference Include="..\Web.Client\Web.Client.csproj" />
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.1" />
-		<PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.1" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.5" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -25,8 +25,7 @@ IHost host = Host.CreateDefaultBuilder(args)
 
         services.AddHostedService<Worker>();
 
-        services.AddDbContext<HomeSystemContext>(options =>
-            options.UseNpgsql(context.Configuration.GetConnectionString("HomeSystemContext")));
+        services.AddHomeSystemContext(context.Configuration);
 
         services.AddScoped<BacnetDeviceReader>();
         services.AddScoped<ChineseRoomControllerReader>();

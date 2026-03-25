@@ -11,8 +11,7 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddControllers();
 
-builder.Services.AddDbContext<HomeSystemContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("HomeSystemContext")));
+builder.Services.AddHomeSystemContext(builder.Configuration);
 
 builder.Services.AddWindowsService(options =>
 {
