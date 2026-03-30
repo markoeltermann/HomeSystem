@@ -116,7 +116,7 @@ public class PointsController(HomeSystemContext context, PointValueStore pointVa
                     _ => throw new Exception(),
                 };
             }
-            return (x.Timestamp.ToUniversalTime(), value);
+            return (x.Timestamp.UtcDateTime, value);
         }).ToArray();
 
         pointValueStore.StoreValuesWithReplace(devicePoint.DeviceId, devicePoint.Id, processedValues);

@@ -50,10 +50,10 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
         var startDate = timestampLocal.Day <= 10 ? firstOfThisMonth.AddMonths(-1) : firstOfThisMonth;
         var endDate = DateOnly.FromDateTime(timestampLocal);
 
-        var consumptionValues = (await pointValueStoreAdapter.Get(consumptionPoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
-        var productionValues = (await pointValueStoreAdapter.Get(productionPoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
-        var buyPriceValues = (await pointValueStoreAdapter.Get(buyPricePoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
-        var sellPriceValues = (await pointValueStoreAdapter.Get(sellPricePoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
+        var consumptionValues = (await pointValueStoreAdapter.Get(consumptionPoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
+        var productionValues = (await pointValueStoreAdapter.Get(productionPoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
+        var buyPriceValues = (await pointValueStoreAdapter.Get(buyPricePoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
+        var sellPriceValues = (await pointValueStoreAdapter.Get(sellPricePoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
 
         var productionLookup = productionValues.ToDictionary(v => v.Timestamp, v => v.Value);
         var buyPriceLookup = buyPriceValues.ToDictionary(v => v.Timestamp, v => v.Value);
@@ -97,11 +97,12 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
                 result.Add(new PointValue(monthCostPoint, monthAccumulatedCost.ToString("0.00", InvariantCulture), readingTimestamp.UtcDateTime));
             }
 
-            if (readingTimestamp.Hour == 0 && readingTimestamp.Minute == 0 && readingTimestamp.Second == 0)
+            var readingTimestampLocal = readingTimestamp.ToLocalTime();
+            if (readingTimestampLocal.Hour == 0 && readingTimestampLocal.Minute == 0 && readingTimestampLocal.Second == 0)
             {
                 dayAccumulatedCost = 0;
                 isDayDataMissing = false;
-                if (readingTimestamp.Day == 1)
+                if (readingTimestampLocal.Day == 1)
                 {
                     monthAccumulatedCost = 0;
                 }

@@ -1,6 +1,7 @@
 ﻿using Domain;
 using EstfeedConnector;
 using EstfeedConnector.Client.Api.Public.V1.MeteringData;
+using EstfeedConnector.Client.Models;
 using System.Text.Json;
 
 namespace ValueReaderService.Services;
@@ -27,7 +28,7 @@ public class EstfeedReader(ILogger<DeviceReader> logger, IHttpClientFactory http
 
         var response = await client.Api.Public.V1.MeteringData.GetAsync(x =>
         {
-            x.QueryParameters.StartDateTime = localTime.Date.AddDays(-1);
+            x.QueryParameters.StartDateTime = localTime.Date.AddDays(-5);
             x.QueryParameters.EndDateTime = localTime.Date.AddDays(1);
             x.QueryParameters.ResolutionAsGetResolutionQueryParameterType = GetResolutionQueryParameterType.Fifteen_minutes;
             x.QueryParameters.MeteringPointEics = [address.DeviceId];
@@ -56,9 +57,23 @@ public class EstfeedReader(ILogger<DeviceReader> logger, IHttpClientFactory http
 
         var result = new List<PointValue>();
 
+        var intervals = new Dictionary<DateTime, ApiKeyMeterDataAccountingIntervalDto>();
         foreach (var interval in meteringData.AccountingIntervals)
         {
-            var utcStart = interval.PeriodStart.UtcDateTime;
+            var intervalTimestamp = interval.PeriodStart.UtcDateTime;
+            if (!intervals.TryGetValue(intervalTimestamp, out var current))
+            {
+                intervals[intervalTimestamp] = interval;
+            }
+            else
+            {
+                if (current.ConsumptionKwh == null)
+                    intervals[intervalTimestamp] = interval;
+            }
+        }
+
+        foreach (var (utcStart, interval) in intervals.OrderBy(x => x.Key))
+        {
             var consumptionKwh = interval.ConsumptionKwh;
             var productionKwh = interval.ProductionKwh;
 

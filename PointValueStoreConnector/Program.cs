@@ -1,5 +1,4 @@
 using Domain;
-using Microsoft.EntityFrameworkCore;
 using NLog.Extensions.Logging;
 using SharedServices;
 
