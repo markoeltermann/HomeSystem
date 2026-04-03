@@ -221,7 +221,9 @@ public class ElectricityPriceReader(
         if (timestamp.Month is 11 or 12 or 1 or 2 or 3)
         {
             var isEveningPeak = time >= TimeSpan.FromHours(16) && time < TimeSpan.FromHours(20);
-            if (timestamp.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday || time < TimeSpan.FromHours(7) || time >= TimeSpan.FromHours(22) || IsNationalHoliday(timestamp))
+            if (timestamp.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday
+                || time < TimeSpan.FromHours(7) || time >= TimeSpan.FromHours(22)
+                || IsNationalHoliday(timestamp))
             {
                 if (isEveningPeak)
                 {
@@ -246,7 +248,9 @@ public class ElectricityPriceReader(
         }
         else
         {
-            if (timestamp.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday || time < TimeSpan.FromHours(7) || time >= TimeSpan.FromHours(22))
+            if (timestamp.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday
+                || time < TimeSpan.FromHours(7) || time >= TimeSpan.FromHours(22)
+                || IsNationalHoliday(timestamp))
             {
                 return nightPrice;
             }
@@ -259,20 +263,27 @@ public class ElectricityPriceReader(
 
     private static bool IsNationalHoliday(DateTime timestamp)
     {
-        return (timestamp.Month, timestamp.Day) switch
+        return (timestamp.Year, timestamp.Month, timestamp.Day) switch
         {
-            (1, 1) => true,
-            (2, 24) => true,
-            (5, 1) => true,
-            (6, 23) => true,
-            (6, 24) => true,
-            (8, 20) => true,
-            (12, 24) => true,
-            (12, 25) => true,
-            (12, 26) => true,
+            (_, 1, 1) => true,
+            (_, 2, 24) => true,
+            (_, 5, 1) => true,
+            (_, 6, 23) => true,
+            (_, 6, 24) => true,
+            (_, 8, 20) => true,
+            (_, 12, 24) => true,
+            (_, 12, 25) => true,
+            (_, 12, 26) => true,
+            (2024, 3, 29) => true,
+            (2025, 4, 18) => true,
+            (2026, 4, 3) => true,
+            (2027, 3, 26) => true,
+            (2028, 4, 14) => true,
+            (2029, 3, 30) => true,
+            (2030, 4, 19) => true,
+            (2031, 4, 11) => true,
             _ => false
         };
-        throw new NotImplementedException();
     }
 
     private class ValueContainerDto
