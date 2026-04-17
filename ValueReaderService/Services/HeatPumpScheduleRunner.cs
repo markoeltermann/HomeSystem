@@ -35,7 +35,11 @@ public class HeatPumpScheduleRunner(
         var devices = await dbContext.Devices.AsNoTrackingWithIdentityResolution()
             .Include(x => x.DevicePoints)
             .ThenInclude(x => x.EnumMembers)
-            .Where(x => x.Type == "heat_pump" || x.Type == "airobot_thermostat" || x.Type == "yrno_weather_forecast" || (x.Type == "shelly" && x.SubType == "heat-distribution-controller"))
+            .Where(x => x.Type == "heat_pump"
+                || x.Type == "airobot_thermostat"
+                || x.Type == "yrno_weather_forecast"
+                || (x.Type == "shelly" && x.SubType == "heat-distribution-controller")
+                || x.Type == "ventilation")
             .ToListAsync();
 
         var heatPumpDevice = devices.FirstOrDefault(x => x.Type == "heat_pump")
@@ -60,6 +64,7 @@ public class HeatPumpScheduleRunner(
         var statusPoint = GetPointByType(heatPumpDevice, "status");
         var heatingEnumValue = GetRequiredEnumValue(statusPoint.EnumMembers, "heating");
         var defrostingEnumValue = GetRequiredEnumValue(statusPoint.EnumMembers, "defrosting");
+        var hotWaterEnumValue = GetRequiredEnumValue(statusPoint.EnumMembers, "hot-water");
 
         var thermostatModePoint = livingRoomThermostat?.DevicePoints.FirstOrDefault(x => x.Type == "mode");
         var comfortEnumValue = GetEnumValue(thermostatModePoint?.EnumMembers, "comfort");
@@ -81,6 +86,8 @@ public class HeatPumpScheduleRunner(
             ? await pointValueStoreAdapter.Get(thermostatModePoint.Id, date)
             : null;
 
+        var outdoorTemperature = await GetOutdoorTemperature(timestampLocal, date, devices);
+
         heatingOffset.CurrentValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, actualHeatingOffsetValues);
         heatingOffset.NewValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, heatingOffsetScheduleValues);
 
@@ -89,7 +96,8 @@ public class HeatPumpScheduleRunner(
 
         heatingDegreeMinutes.CurrentValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, heatingDegreeMinutesValues);
 
-        if (heatingOffset.HasChanged && heatingOffset.NewValue.Value >= 0 && heatingOffset.CurrentValue.Value < 0 && heatingDegreeMinutes.CurrentValue.HasValue)
+        if (heatingOffset.HasChanged && heatingOffset.NewValue.Value >= 0 && heatingOffset.CurrentValue.Value < 0
+            && heatingDegreeMinutes.CurrentValue > -60)
         {
             var heatingOffsetDelta = (int)(heatingOffset.NewValue.Value - heatingOffset.CurrentValue.Value);
             var newValue = heatingOffsetDelta * -10;
@@ -101,6 +109,14 @@ public class HeatPumpScheduleRunner(
         else if (heatingOffset.HasChanged && heatingOffset.NewValue.Value < 0 && heatingOffset.CurrentValue.Value >= 0 && heatingDegreeMinutes.CurrentValue < 0)
         {
             heatingDegreeMinutes.NewValue = 0;
+        }
+        else if (statusValue != null && (int)statusValue == hotWaterEnumValue && heatingDegreeMinutes.CurrentValue < -80)
+        {
+            heatingDegreeMinutes.NewValue = -60;
+        }
+        else if (outdoorTemperature >= 5 && heatingDegreeMinutes.CurrentValue < -150)
+        {
+            heatingDegreeMinutes.NewValue = -130;
         }
 
         if (thermostatModeValues != null && heatingOffset.CurrentValue.HasValue)
@@ -170,6 +186,20 @@ public class HeatPumpScheduleRunner(
         return null;
     }
 
+    private async Task<double?> GetOutdoorTemperature(DateTime timestampLocal, DateOnly date, List<Device> devices)
+    {
+        var outdoorTemperaturePoints = GetPointsByType(devices.SelectMany(x => x.DevicePoints), "outdoor-temperature");
+        var outdoorTemperatureValues = new double?[outdoorTemperaturePoints.Length];
+        for (int i = 0; i < outdoorTemperaturePoints.Length; i++)
+        {
+            var values = await pointValueStoreAdapter.Get(outdoorTemperaturePoints[i].Id, date);
+            outdoorTemperatureValues[i] = PointValueStoreAdapter.GetCurrentValue(timestampLocal, values);
+        }
+        var outdoorTemperature = outdoorTemperatureValues.Where(x => x.HasValue).Min();
+
+        return outdoorTemperature;
+    }
+
     private async Task SendHeatDistributionCommands(Device? heatDistributionControllerDevice)
     {
         if (valveSignal.HasChanged)
@@ -196,6 +226,14 @@ public class HeatPumpScheduleRunner(
     {
         return devicePoints.FirstOrDefault(x => x.Type == type)
             ?? throw new InvalidOperationException($"Device point of type '{type}' not found.");
+    }
+
+    private static DevicePoint[] GetPointsByType(IEnumerable<DevicePoint> devicePoints, string type)
+    {
+        var points = devicePoints.Where(x => x.Type == type).ToArray();
+        if (points.Length == 0)
+            throw new InvalidOperationException($"Device point of type '{type}' not found.");
+        return points;
     }
 
     private async Task SendHeatPumpCommands(DeviceAddress address, DevicePoint heatingOffsetPoint, DevicePoint hotWaterModePoint, DevicePoint heatingDegreeMinutesPoint)
