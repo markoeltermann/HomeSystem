@@ -2,6 +2,7 @@
 using System.Globalization;
 
 namespace ValueReaderService.Services;
+
 public class ConfigModel(IConfiguration configuration)
 {
     private static readonly CultureInfo InvariantCulture = CultureInfo.InvariantCulture;
@@ -11,6 +12,7 @@ public class ConfigModel(IConfiguration configuration)
     public decimal WeatherForecastAltitude() => GetDecimal("WeatherForecastAltitude");
     public decimal ElectricitySaleMargin() => GetDecimal("ElectricitySaleMargin");
     public decimal ElectricityPurchaseMargin() => GetDecimal("ElectricityPurchaseMargin");
+    public decimal GridPurchaseMargin() => GetDecimal("GridPurchaseMargin");
     public string WeatherForecastContactEmail() => GetString("WeatherForecastContactEmail");
     public string PointValueStoreConnectorUrl() => GetString("PointValueStoreConnectorUrl");
     public string ModbusConnectorUrl() => GetString("ModbusConnectorUrl");

@@ -238,7 +238,7 @@ public class HeatPumpScheduleRunner(
 
     private async Task SendHeatPumpCommands(DeviceAddress address, DevicePoint heatingOffsetPoint, DevicePoint hotWaterModePoint, DevicePoint heatingDegreeMinutesPoint)
     {
-        if (heatingOffset.HasChanged || hotWaterMode.HasChanged)
+        if (heatingOffset.HasChanged || hotWaterMode.HasChanged || heatingDegreeMinutes.HasChanged)
         {
             using var httpClient = httpClientFactory.CreateClient(nameof(MyUplinkDeviceReader));
             var client = await MyUplinkClientFactory.Create(httpClient, address.ClientId!, address.ClientSecret!)

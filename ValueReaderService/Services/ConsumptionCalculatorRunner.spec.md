@@ -35,21 +35,41 @@ Calculate the energy production of a single day (starting from 0 at the beginnin
 - Each value is formatted to 2 decimal places (`0.00`).
 - The `StorePointsWithReplace` property is set to `true`, ensuring the day's history is updated/overwritten in the store with the newly calculated progression.
 
-## 5. Electricity Cost Calculation
-Calculates daily and monthly electricity costs (or income) based on consumption and production data.
+## 5. Price Calculation
+Calculates various electricity prices based on raw NPS price and grid price.
 
 ### 5.1 Dependencies
-- **Data Source**: `estfeed` device providing `15-min-consumption` and `15-min-production` (kWh).
-- **Pricing Data**: `electricity_price` device providing `total-buy-price` and `total-sell-price` (EUR/kWh).
-- **Target Points**: `day-electricity-cost` and `month-electricity-cost` on the current device.
+- **Data Source**: `electricity_price` device providing `grid-price-raw` and `nps-price-raw`.
+- **Config Data**: `ConfigModel` providing `ValueAddedTax`, `ElectricitySaleMargin`, `ElectricityPurchaseMargin`, and `GridPurchaseMargin`.
+- **Target Points**: `grid-buy-price`, `electricity-buy-price`, `electricity-sell-price`, and `total-electricity-buy-price` on the current consumption calculator device.
 
 ### 5.2 Workflow Logic
+- Fetches raw prices for the current and surrounding days to ensure required coverage at 5-minute resolution.
+- Applies VAT (`raw * (1 + VAT/100)`) and margins where applicable.
+- **grid-buy-price**: `(grid-price-raw + GridPurchaseMargin) * (1 + VAT/100)`
+- **electricity-buy-price**: `(nps-price-raw + ElectricityPurchaseMargin) * (1 + VAT/100)`
+- **electricity-sell-price**: `nps-price-raw + ElectricitySaleMargin`
+- **total-electricity-buy-price**: `grid-buy-price + electricity-buy-price`
+- Returns these calculated price points so they are populated in the store.
+
+## 6. Electricity Cost Calculation
+Calculates daily and monthly electricity costs (or income) based on consumption and production data.
+
+### 6.1 Dependencies
+- **Data Source**: `estfeed` device providing `15-min-consumption` and `15-min-production` (kWh).
+- **Pricing Data**: `total-electricity-buy-price`, `electricity-buy-price`, `grid-buy-price`, and `electricity-sell-price` retrieved from the current device (via point value store). *Note: Because points are persisted only after the entire service runner completes, the cost calculation relies on the prices calculated and stored during the previous execution cycle.*
+- **Target Points**: `day-electricity-cost`, `month-total-electricity-cost`, `month-electricity-cost`, and `month-grid-cost` on the current device.
+
+### 6.2 Workflow Logic
 - **Time Range**: Calculates starting from the 1st of the current month. If the current day is 10 or less, it calculates from the 1st of the previous month.
 - **Resolution**: Both input and output points use 5-minute resolution.
 - **Consumption/Production Modeling**: Even though source points represent 15-minute windows, they are provided at 5-minute intervals (filled in). The consumption/production is assumed to be evenly distributed within the 15-minute period, so each 5-minute interval accounts for 1/3 of the 15-minute value.
-- **Cost Calculation**: `IntervalCost = (IntervalConsumption * BuyPrice) - (IntervalProduction * SellPrice)`.
+- **Cost Calculation**: 
+  - `IntervalTotalCost = (IntervalConsumption * TotalBuyPrice) - (IntervalProduction * SellPrice)`
+  - `IntervalElectricityCost = (IntervalConsumption * ElectricityBuyPrice) - (IntervalProduction * SellPrice)`
+  - `IntervalGridCost = IntervalConsumption * GridBuyPrice`
 - **Resets**:
-  - `day-electricity-cost` and `month-electricity-cost` values at `00:00` represent the final total of the preceding day/month. Accumulation resets just after this (at the 00:05 interval).
+  - `day-electricity-cost`, `month-total-electricity-cost`, `month-electricity-cost`, and `month-grid-cost` values at `00:00` represent the final total of the preceding day/month. Accumulation resets just after this (at the 00:05 interval).
 - **Data Gap Handling**:
   - **Daily Cost**: If either consumption or production data is missing (null) for an interval, the `day-electricity-cost` becomes null for the remainder of that day to avoid misleading trends.
   - **Monthly Cost**: Missing data intervals are treated as zero cost contribution, allowing the monthly accumulation to continue up to the current time even if some daily data is partially missing.
