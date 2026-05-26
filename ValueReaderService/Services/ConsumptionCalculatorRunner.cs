@@ -16,7 +16,7 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
 #endif
         var result = new List<PointValue>();
         result.AddRange(await CalculatePrices(timestamp, devicePoints) ?? []);
-        //result.AddRange(await CalculateDayPVEnergyUsingPower(timestamp, devicePoints) ?? []);
+        result.AddRange(await CalculateDayPVEnergyUsingPower(timestamp, devicePoints) ?? []);
         result.AddRange(await CalculateElectricityCosts(timestamp, devicePoints) ?? []);
         return result;
     }
@@ -51,8 +51,8 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
 
         var timestampLocal = timestamp.ToLocalTime();
         var firstOfThisMonth = new DateOnly(timestampLocal.Year, timestampLocal.Month, 1);
-        //var startDate = timestampLocal.Day <= 10 ? firstOfThisMonth.AddMonths(-1) : firstOfThisMonth;
-        var startDate = firstOfThisMonth.AddMonths(-1);
+        var startDate = timestampLocal.Day <= 10 ? firstOfThisMonth.AddMonths(-1) : firstOfThisMonth;
+        //var startDate = firstOfThisMonth.AddMonths(-1);
         var endDate = DateOnly.FromDateTime(timestampLocal);
 
         var consumptionValues = (await pointValueStoreAdapter.Get(consumptionPoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
@@ -302,15 +302,15 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
 
         var timestampLocal = timestamp.ToLocalTime();
 
-        var firstOfThisMonth = new DateOnly(timestampLocal.Year, timestampLocal.Month, 1).AddMonths(-1);
-        var startDate = timestampLocal.Day <= 10 ? firstOfThisMonth.AddMonths(-1) : firstOfThisMonth;
-        var endDate = DateOnly.FromDateTime(timestampLocal.AddDays(1));
+        //var firstOfThisMonth = new DateOnly(timestampLocal.Year, timestampLocal.Month, 1).AddMonths(-1);
+        //var startDate = timestampLocal.Day <= 10 ? firstOfThisMonth.AddMonths(-1) : firstOfThisMonth;
+        //var endDate = DateOnly.FromDateTime(timestampLocal.AddDays(1));
 
-        //var startDate = DateOnly.FromDateTime(timestampLocal.AddDays(-1));
-        //var endDate = startDate.AddDays(2);
+        var startDate = DateOnly.FromDateTime(timestampLocal.AddDays(-1));
+        var endDate = startDate.AddDays(3);
 
-        var gridPrices = (await pointValueStoreAdapter.Get(gridPriceRawPoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
-        var npsPrices = (await pointValueStoreAdapter.Get(npsPriceRawPoint.Id, startDate, endDate, fiveMinResolution: true)).Values!;
+        var gridPrices = (await pointValueStoreAdapter.Get(gridPriceRawPoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
+        var npsPrices = (await pointValueStoreAdapter.Get(npsPriceRawPoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
 
         var npsLookup = npsPrices.ToDictionary(v => v.Timestamp, v => v.Value);
 
@@ -318,6 +318,7 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
         var vat = (double)configModel.ValueAddedTax();
         var vatMultiplier = 1 + (vat / 100.0);
         var electricitySaleMargin = (double)configModel.ElectricitySaleMargin();
+        var electricitySaleMarginFee = (double)configModel.ElectricitySaleMarginFee();
         var electricityPurchaseMargin = (double)configModel.ElectricityPurchaseMargin();
         var gridPurchaseMargin = (double)configModel.GridPurchaseMargin();
 
@@ -331,7 +332,7 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
             {
                 var gridBuyPrice = (rawGrid.Value + gridPurchaseMargin) * vatMultiplier;
                 var electricityBuyPrice = (rawNps.Value + electricityPurchaseMargin) * vatMultiplier;
-                var electricitySellPrice = rawNps.Value + electricitySaleMargin;
+                var electricitySellPrice = (rawNps.Value - electricitySaleMargin) - (electricitySaleMarginFee * vatMultiplier);
                 var totalBuyPrice = gridBuyPrice + electricityBuyPrice;
 
                 result.Add(new PointValue(gridBuyPricePoint, gridBuyPrice.ToString("0.00000", InvariantCulture), readingTimestamp.UtcDateTime));

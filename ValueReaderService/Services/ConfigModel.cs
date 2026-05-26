@@ -11,6 +11,7 @@ public class ConfigModel(IConfiguration configuration)
     public decimal WeatherForecastLongitude() => GetDecimal("WeatherForecastLongitude");
     public decimal WeatherForecastAltitude() => GetDecimal("WeatherForecastAltitude");
     public decimal ElectricitySaleMargin() => GetDecimal("ElectricitySaleMargin");
+    public decimal ElectricitySaleMarginFee() => GetDecimal("ElectricitySaleMarginFee");
     public decimal ElectricityPurchaseMargin() => GetDecimal("ElectricityPurchaseMargin");
     public decimal GridPurchaseMargin() => GetDecimal("GridPurchaseMargin");
     public string WeatherForecastContactEmail() => GetString("WeatherForecastContactEmail");

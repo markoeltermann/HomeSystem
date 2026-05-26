@@ -40,7 +40,7 @@ Calculates various electricity prices based on raw NPS price and grid price.
 
 ### 5.1 Dependencies
 - **Data Source**: `electricity_price` device providing `grid-price-raw` and `nps-price-raw`.
-- **Config Data**: `ConfigModel` providing `ValueAddedTax`, `ElectricitySaleMargin`, `ElectricityPurchaseMargin`, and `GridPurchaseMargin`.
+- **Config Data**: `ConfigModel` providing `ValueAddedTax`, `ElectricitySaleMargin`, `ElectricitySaleMarginFee`, `ElectricityPurchaseMargin`, and `GridPurchaseMargin`.
 - **Target Points**: `grid-buy-price`, `electricity-buy-price`, `electricity-sell-price`, and `total-electricity-buy-price` on the current consumption calculator device.
 
 ### 5.2 Workflow Logic
@@ -48,7 +48,7 @@ Calculates various electricity prices based on raw NPS price and grid price.
 - Applies VAT (`raw * (1 + VAT/100)`) and margins where applicable.
 - **grid-buy-price**: `(grid-price-raw + GridPurchaseMargin) * (1 + VAT/100)`
 - **electricity-buy-price**: `(nps-price-raw + ElectricityPurchaseMargin) * (1 + VAT/100)`
-- **electricity-sell-price**: `nps-price-raw + ElectricitySaleMargin`
+- **electricity-sell-price**: `(nps-price-raw - ElectricitySaleMargin) - (ElectricitySaleMarginFee * (1 + VAT/100))`
 - **total-electricity-buy-price**: `grid-buy-price + electricity-buy-price`
 - Returns these calculated price points so they are populated in the store.
 
