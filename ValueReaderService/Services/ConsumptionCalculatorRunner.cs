@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ValueReaderService.Services;
 
-public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSystemContext dbContext, PointValueStoreAdapter pointValueStoreAdapter) : DeviceReader(logger)
+public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSystemContext dbContext, PointValueStoreAdapter pointValueStoreAdapter, ConfigModel configModel) : DeviceReader(logger)
 {
     private const double MinSolarElevation = -1.0;
 
@@ -15,6 +15,7 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
         await Task.Delay(TimeSpan.FromSeconds(10));
 #endif
         var result = new List<PointValue>();
+        result.AddRange(await CalculatePrices(timestamp, devicePoints) ?? []);
         result.AddRange(await CalculateDayPVEnergyUsingPower(timestamp, devicePoints) ?? []);
         result.AddRange(await CalculateElectricityCosts(timestamp, devicePoints) ?? []);
         return result;
@@ -25,22 +26,25 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
         var estfeedDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "estfeed")
             ?? throw new InvalidOperationException("Estfeed device not found");
 
-        var priceDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "electricity_price")
-            ?? throw new InvalidOperationException("Electricity price device not found");
-
         var consumptionPoint = estfeedDevice.DevicePoints.FirstOrDefault(x => x.Type == "15-min-consumption")
             ?? throw new InvalidOperationException("Point '15-min-consumption' not found on estfeed device");
         var productionPoint = estfeedDevice.DevicePoints.FirstOrDefault(x => x.Type == "15-min-production")
             ?? throw new InvalidOperationException("Point '15-min-production' not found on estfeed device");
-        var buyPricePoint = priceDevice.DevicePoints.FirstOrDefault(x => x.Type == "total-buy-price")
-            ?? throw new InvalidOperationException("Point 'total-buy-price' not found on electricity price device");
-        var sellPricePoint = priceDevice.DevicePoints.FirstOrDefault(x => x.Type == "total-sell-price")
-            ?? throw new InvalidOperationException("Point 'total-sell-price' not found on electricity price device");
+        var totalElectricityBuyPricePoint = devicePoints.FirstOrDefault(x => x.Type == "total-electricity-buy-price")
+            ?? throw new InvalidOperationException("Point 'total-electricity-buy-price' not found on current device");
+        var electricityBuyPricePoint = devicePoints.FirstOrDefault(x => x.Type == "electricity-buy-price")
+            ?? throw new InvalidOperationException("Point 'electricity-buy-price' not found on current device");
+        var gridBuyPricePoint = devicePoints.FirstOrDefault(x => x.Type == "grid-buy-price")
+            ?? throw new InvalidOperationException("Point 'grid-buy-price' not found on current device");
+        var electricitySellPricePoint = devicePoints.FirstOrDefault(x => x.Type == "electricity-sell-price")
+            ?? throw new InvalidOperationException("Point 'electricity-sell-price' not found on current device");
 
         var dayCostPoint = devicePoints.FirstOrDefault(x => x.Type == "day-electricity-cost");
-        var monthCostPoint = devicePoints.FirstOrDefault(x => x.Type == "month-electricity-cost");
+        var monthTotalCostPoint = devicePoints.FirstOrDefault(x => x.Type == "month-total-electricity-cost");
+        var monthElectricityCostPoint = devicePoints.FirstOrDefault(x => x.Type == "month-electricity-cost");
+        var monthGridCostPoint = devicePoints.FirstOrDefault(x => x.Type == "month-grid-cost");
 
-        if (dayCostPoint == null && monthCostPoint == null)
+        if (dayCostPoint == null || monthTotalCostPoint == null || monthElectricityCostPoint == null || monthGridCostPoint == null)
         {
             return null;
         }
@@ -48,19 +52,26 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
         var timestampLocal = timestamp.ToLocalTime();
         var firstOfThisMonth = new DateOnly(timestampLocal.Year, timestampLocal.Month, 1);
         var startDate = timestampLocal.Day <= 10 ? firstOfThisMonth.AddMonths(-1) : firstOfThisMonth;
+        //var startDate = firstOfThisMonth.AddMonths(-1);
         var endDate = DateOnly.FromDateTime(timestampLocal);
 
         var consumptionValues = (await pointValueStoreAdapter.Get(consumptionPoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
         var productionValues = (await pointValueStoreAdapter.Get(productionPoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
-        var buyPriceValues = (await pointValueStoreAdapter.Get(buyPricePoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
-        var sellPriceValues = (await pointValueStoreAdapter.Get(sellPricePoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
+        var totalElectricityBuyPriceValues = (await pointValueStoreAdapter.Get(totalElectricityBuyPricePoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
+        var electricityBuyPriceValues = (await pointValueStoreAdapter.Get(electricityBuyPricePoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
+        var gridBuyPriceValues = (await pointValueStoreAdapter.Get(gridBuyPricePoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
+        var electricitySellPriceValues = (await pointValueStoreAdapter.Get(electricitySellPricePoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
 
         var productionLookup = productionValues.ToDictionary(v => v.Timestamp, v => v.Value);
-        var buyPriceLookup = buyPriceValues.ToDictionary(v => v.Timestamp, v => v.Value);
-        var sellPriceLookup = sellPriceValues.ToDictionary(v => v.Timestamp, v => v.Value);
+        var totalElectricityBuyPriceLookup = totalElectricityBuyPriceValues.ToDictionary(v => v.Timestamp, v => v.Value);
+        var electricityBuyPriceLookup = electricityBuyPriceValues.ToDictionary(v => v.Timestamp, v => v.Value);
+        var gridBuyPriceLookup = gridBuyPriceValues.ToDictionary(v => v.Timestamp, v => v.Value);
+        var electricitySellPriceLookup = electricitySellPriceValues.ToDictionary(v => v.Timestamp, v => v.Value);
 
         var result = new List<PointValue>();
-        var monthAccumulatedCost = 0.0;
+        var monthAccumulatedTotalCost = 0.0;
+        var monthAccumulatedElectricityCost = 0.0;
+        var monthAccumulatedGridCost = 0.0;
         var dayAccumulatedCost = 0.0;
         var isDayDataMissing = false;
 
@@ -79,23 +90,24 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
 
             var intervalConsumption = (consumption ?? 0) / 3.0;
             var intervalProduction = (production ?? 0) / 3.0;
-            var buyPrice = buyPriceLookup.GetValueOrDefault(readingTimestamp) ?? 0;
-            var sellPrice = sellPriceLookup.GetValueOrDefault(readingTimestamp) ?? 0;
+            var totalElectricityBuyPrice = totalElectricityBuyPriceLookup.GetValueOrDefault(readingTimestamp) ?? 0;
+            var electricityBuyPrice = electricityBuyPriceLookup.GetValueOrDefault(readingTimestamp) ?? 0;
+            var gridBuyPrice = gridBuyPriceLookup.GetValueOrDefault(readingTimestamp) ?? 0;
+            var electricitySellPrice = electricitySellPriceLookup.GetValueOrDefault(readingTimestamp) ?? 0;
 
-            var intervalCost = (intervalConsumption * buyPrice) - (intervalProduction * sellPrice);
+            var intervalTotalCost = (intervalConsumption * totalElectricityBuyPrice) - (intervalProduction * electricitySellPrice);
+            var intervalElectricityCost = (intervalConsumption * electricityBuyPrice) - (intervalProduction * electricitySellPrice);
+            var intervalGridCost = intervalConsumption * gridBuyPrice;
 
-            dayAccumulatedCost += intervalCost;
-            monthAccumulatedCost += intervalCost;
+            dayAccumulatedCost += intervalTotalCost;
+            monthAccumulatedTotalCost += intervalTotalCost;
+            monthAccumulatedElectricityCost += intervalElectricityCost;
+            monthAccumulatedGridCost += intervalGridCost;
 
-            if (dayCostPoint != null)
-            {
-                result.Add(new PointValue(dayCostPoint, isDayDataMissing ? null : dayAccumulatedCost.ToString("0.00", InvariantCulture), readingTimestamp.UtcDateTime));
-            }
-
-            if (monthCostPoint != null)
-            {
-                result.Add(new PointValue(monthCostPoint, monthAccumulatedCost.ToString("0.00", InvariantCulture), readingTimestamp.UtcDateTime));
-            }
+            result.Add(new PointValue(dayCostPoint, isDayDataMissing ? null : dayAccumulatedCost.ToString("0.00", InvariantCulture), readingTimestamp.UtcDateTime));
+            result.Add(new PointValue(monthTotalCostPoint, monthAccumulatedTotalCost.ToString("0.00", InvariantCulture), readingTimestamp.UtcDateTime));
+            result.Add(new PointValue(monthElectricityCostPoint, monthAccumulatedElectricityCost.ToString("0.00", InvariantCulture), readingTimestamp.UtcDateTime));
+            result.Add(new PointValue(monthGridCostPoint, monthAccumulatedGridCost.ToString("0.00", InvariantCulture), readingTimestamp.UtcDateTime));
 
             var readingTimestampLocal = readingTimestamp.ToLocalTime();
             if (readingTimestampLocal.Hour == 0 && readingTimestampLocal.Minute == 0 && readingTimestampLocal.Second == 0)
@@ -104,7 +116,9 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
                 isDayDataMissing = false;
                 if (readingTimestampLocal.Day == 1)
                 {
-                    monthAccumulatedCost = 0;
+                    monthAccumulatedTotalCost = 0;
+                    monthAccumulatedElectricityCost = 0;
+                    monthAccumulatedGridCost = 0;
                 }
             }
         }
@@ -265,4 +279,70 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
 
         return result;
     }
+
+    private async Task<IList<PointValue>?> CalculatePrices(DateTime timestamp, ICollection<DevicePoint> devicePoints)
+    {
+        var priceDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "electricity_price")
+            ?? throw new InvalidOperationException("Electricity price device not found");
+
+        var gridPriceRawPoint = priceDevice.DevicePoints.FirstOrDefault(x => x.Type == "grid-price-raw")
+            ?? throw new InvalidOperationException("Point 'grid-price-raw' not found");
+        var npsPriceRawPoint = priceDevice.DevicePoints.FirstOrDefault(x => x.Type == "nps-price-raw")
+            ?? throw new InvalidOperationException("Point 'nps-price-raw' not found");
+
+        var gridBuyPricePoint = devicePoints.FirstOrDefault(x => x.Type == "grid-buy-price");
+        var electricityBuyPricePoint = devicePoints.FirstOrDefault(x => x.Type == "electricity-buy-price");
+        var electricitySellPricePoint = devicePoints.FirstOrDefault(x => x.Type == "electricity-sell-price");
+        var totalBuyPricePoint = devicePoints.FirstOrDefault(x => x.Type == "total-electricity-buy-price");
+
+        if (gridBuyPricePoint == null || electricityBuyPricePoint == null || electricitySellPricePoint == null || totalBuyPricePoint == null)
+        {
+            return null;
+        }
+
+        var timestampLocal = timestamp.ToLocalTime();
+
+        //var firstOfThisMonth = new DateOnly(timestampLocal.Year, timestampLocal.Month, 1).AddMonths(-1);
+        //var startDate = timestampLocal.Day <= 10 ? firstOfThisMonth.AddMonths(-1) : firstOfThisMonth;
+        //var endDate = DateOnly.FromDateTime(timestampLocal.AddDays(1));
+
+        var startDate = DateOnly.FromDateTime(timestampLocal.AddDays(-1));
+        var endDate = startDate.AddDays(3);
+
+        var gridPrices = (await pointValueStoreAdapter.Get(gridPriceRawPoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
+        var npsPrices = (await pointValueStoreAdapter.Get(npsPriceRawPoint.Id, startDate, endDate, fiveMinResolution: true, utc: true)).Values!;
+
+        var npsLookup = npsPrices.ToDictionary(v => v.Timestamp, v => v.Value);
+
+        var result = new List<PointValue>();
+        var vat = (double)configModel.ValueAddedTax();
+        var vatMultiplier = 1 + (vat / 100.0);
+        var electricitySaleMargin = (double)configModel.ElectricitySaleMargin();
+        var electricitySaleMarginFee = (double)configModel.ElectricitySaleMarginFee();
+        var electricityPurchaseMargin = (double)configModel.ElectricityPurchaseMargin();
+        var gridPurchaseMargin = (double)configModel.GridPurchaseMargin();
+
+        foreach (var gridReading in gridPrices)
+        {
+            var readingTimestamp = gridReading.Timestamp;
+            var rawGrid = gridReading.Value;
+            var rawNps = npsLookup.GetValueOrDefault(readingTimestamp);
+
+            if (rawGrid.HasValue && rawNps.HasValue)
+            {
+                var gridBuyPrice = (rawGrid.Value + gridPurchaseMargin) * vatMultiplier;
+                var electricityBuyPrice = (rawNps.Value + electricityPurchaseMargin) * vatMultiplier;
+                var electricitySellPrice = (rawNps.Value - electricitySaleMargin) - (electricitySaleMarginFee * vatMultiplier);
+                var totalBuyPrice = gridBuyPrice + electricityBuyPrice;
+
+                result.Add(new PointValue(gridBuyPricePoint, gridBuyPrice.ToString("0.00000", InvariantCulture), readingTimestamp.UtcDateTime));
+                result.Add(new PointValue(electricityBuyPricePoint, electricityBuyPrice.ToString("0.00000", InvariantCulture), readingTimestamp.UtcDateTime));
+                result.Add(new PointValue(electricitySellPricePoint, electricitySellPrice.ToString("0.00000", InvariantCulture), readingTimestamp.UtcDateTime));
+                result.Add(new PointValue(totalBuyPricePoint, totalBuyPrice.ToString("0.00000", InvariantCulture), readingTimestamp.UtcDateTime));
+            }
+        }
+
+        return result;
+    }
 }
+
