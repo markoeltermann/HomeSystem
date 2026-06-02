@@ -61,10 +61,12 @@ public class HeatPumpScheduleRunner(
         var heatingOffsetPoint = GetPointByType(heatPumpDevice, "heating-offset");
         var hotWaterModePoint = GetPointByType(heatPumpDevice, "hot-water-mode");
         var heatingDegreeMinutesPoint = GetPointByType(heatPumpDevice, "heating-degree-minutes");
+        var coolingDegreeMinutesPoint = GetPointByType(heatPumpDevice, "cooling-degree-minutes");
         var statusPoint = GetPointByType(heatPumpDevice, "status");
         var heatingEnumValue = GetRequiredEnumValue(statusPoint.EnumMembers, "heating");
         var defrostingEnumValue = GetRequiredEnumValue(statusPoint.EnumMembers, "defrosting");
         var hotWaterEnumValue = GetRequiredEnumValue(statusPoint.EnumMembers, "hot-water");
+        var coolingEnumValue = GetRequiredEnumValue(statusPoint.EnumMembers, "cooling");
 
         var thermostatModePoint = livingRoomThermostat?.DevicePoints.FirstOrDefault(x => x.Type == "mode");
         var comfortEnumValue = GetEnumValue(thermostatModePoint?.EnumMembers, "comfort");
@@ -73,17 +75,18 @@ public class HeatPumpScheduleRunner(
         var heatingOffsetSchedulePoint = GetPointByType(devicePoints, "heating-offset-schedule");
         var hotWaterModeSchedulePoint = GetPointByType(devicePoints, "hot-water-mode-schedule");
 
-        var actualHeatingOffsetValues = await pointValueStoreAdapter.Get(heatingOffsetPoint.Id, date);
-        var actualHotWaterModeValues = await pointValueStoreAdapter.Get(hotWaterModePoint.Id, date);
-        var heatingDegreeMinutesValues = await pointValueStoreAdapter.Get(heatingDegreeMinutesPoint.Id, date);
-        var statusValues = await pointValueStoreAdapter.Get(statusPoint.Id, date);
+        var actualHeatingOffsetValues = await pointValueStoreAdapter.Get(heatingOffsetPoint.Id, date, fiveMinResolution: true);
+        var actualHotWaterModeValues = await pointValueStoreAdapter.Get(hotWaterModePoint.Id, date, fiveMinResolution: true);
+        var heatingDegreeMinutesValues = await pointValueStoreAdapter.Get(heatingDegreeMinutesPoint.Id, date, fiveMinResolution: true);
+        var coolingDegreeMinutesValues = await pointValueStoreAdapter.Get(coolingDegreeMinutesPoint.Id, date, fiveMinResolution: true);
+        var statusValues = await pointValueStoreAdapter.Get(statusPoint.Id, date, fiveMinResolution: true);
         var statusValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, statusValues);
 
-        var heatingOffsetScheduleValues = await pointValueStoreAdapter.Get(heatingOffsetSchedulePoint.Id, date);
-        var hotWaterModeScheduleValues = await pointValueStoreAdapter.Get(hotWaterModeSchedulePoint.Id, date);
+        var heatingOffsetScheduleValues = await pointValueStoreAdapter.Get(heatingOffsetSchedulePoint.Id, date, fiveMinResolution: true);
+        var hotWaterModeScheduleValues = await pointValueStoreAdapter.Get(hotWaterModeSchedulePoint.Id, date, fiveMinResolution: true);
 
         var thermostatModeValues = thermostatModePoint != null
-            ? await pointValueStoreAdapter.Get(thermostatModePoint.Id, date)
+            ? await pointValueStoreAdapter.Get(thermostatModePoint.Id, date, fiveMinResolution: true)
             : null;
 
         var outdoorTemperature = await GetOutdoorTemperature(timestampLocal, date, devices);
@@ -95,6 +98,8 @@ public class HeatPumpScheduleRunner(
         hotWaterMode.NewValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, hotWaterModeScheduleValues);
 
         heatingDegreeMinutes.CurrentValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, heatingDegreeMinutesValues);
+
+        var currentCoolingDegreeMinutes = PointValueStoreAdapter.GetCurrentValue(timestampLocal, coolingDegreeMinutesValues);
 
         if (heatingOffset.HasChanged && heatingOffset.NewValue.Value >= 0 && heatingOffset.CurrentValue.Value < 0
             && heatingDegreeMinutes.CurrentValue > -60)
@@ -141,11 +146,11 @@ public class HeatPumpScheduleRunner(
         if (heatDistributionControllerDevice != null && weatherForecastDevice != null)
         {
             var valveSignalPoint = GetPointByType(heatDistributionControllerDevice, "valve-signal");
-            var valveSignalValues = await pointValueStoreAdapter.Get(valveSignalPoint.Id, date);
+            var valveSignalValues = await pointValueStoreAdapter.Get(valveSignalPoint.Id, date, fiveMinResolution: true);
             valveSignal.CurrentValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, valveSignalValues);
 
             var airTemperatureForecastPoint = GetPointByType(weatherForecastDevice, "air-temperature");
-            var airTemperatureForecastValues = await pointValueStoreAdapter.Get(airTemperatureForecastPoint.Id, date, date.AddDays(1));
+            var airTemperatureForecastValues = await pointValueStoreAdapter.Get(airTemperatureForecastPoint.Id, date, date.AddDays(1), fiveMinResolution: true);
 
             var after24Hours = timestamp.AddHours(24);
             var upcomingAirTemperatureValues = airTemperatureForecastValues.Values!
@@ -161,7 +166,36 @@ public class HeatPumpScheduleRunner(
                 var upcomingMeanTemperature = upcomingAirTemperatureValues.Average(x => x.Value);
                 if (upcomingMeanTemperature > 5)
                 {
-                    valveSignal.NewValue = 100;
+                    if (currentCoolingDegreeMinutes == null || currentCoolingDegreeMinutes.Value <= 0)
+                    {
+                        valveSignal.NewValue = 100;
+                    }
+                    else if (statusValue != null)
+                    {
+                        if ((int)statusValue == heatingEnumValue)
+                        {
+                            valveSignal.NewValue = 80;
+                        }
+                        else if ((int)statusValue == coolingEnumValue)
+                        {
+                            if (heatingDegreeMinutes.CurrentValue != null && heatingDegreeMinutes.CurrentValue.Value >= 0)
+                            {
+                                valveSignal.NewValue = 0;
+                            }
+                            else
+                            {
+                                valveSignal.NewValue = 20;
+                            }
+                        }
+                        else
+                        {
+                            valveSignal.NewValue = 50;
+                        }
+                    }
+                    else
+                    {
+                        valveSignal.NewValue = 100;
+                    }
                 }
                 else if (statusValue != null)
                 {
@@ -192,7 +226,7 @@ public class HeatPumpScheduleRunner(
         var outdoorTemperatureValues = new double?[outdoorTemperaturePoints.Length];
         for (int i = 0; i < outdoorTemperaturePoints.Length; i++)
         {
-            var values = await pointValueStoreAdapter.Get(outdoorTemperaturePoints[i].Id, date);
+            var values = await pointValueStoreAdapter.Get(outdoorTemperaturePoints[i].Id, date, fiveMinResolution: true);
             outdoorTemperatureValues[i] = PointValueStoreAdapter.GetCurrentValue(timestampLocal, values);
         }
         var outdoorTemperature = outdoorTemperatureValues.Where(x => x.HasValue).Min();
