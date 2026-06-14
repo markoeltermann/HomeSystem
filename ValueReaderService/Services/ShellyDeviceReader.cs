@@ -26,23 +26,43 @@ public class ShellyDeviceReader(
             var addressParts = point.Address.Split('.');
             if (addressParts.Length == 2 && jDoc.RootElement.TryGetProperty(addressParts[0], out var element))
             {
-                if (point.DataType.Name == "Float" && element.TryGetProperty(addressParts[1], out var valueElement) && valueElement.TryGetDouble(out var value))
+                if (point.DataType.Name == "Float")
                 {
-                    result.Add(new(point, value.ToString()));
+                    ReadFloat(result, point, addressParts[1], element);
                 }
-                else if (point.DataType.Name == "Boolean" && element.TryGetProperty(addressParts[1], out valueElement))
+                else if (point.DataType.Name == "Boolean")
                 {
-                    try
-                    {
-                        var b = valueElement.GetBoolean();
-                        result.Add(new(point, b.ToString()));
-                    }
-                    catch { }
+                    ReadBoolean(result, point, addressParts[1], element);
                 }
             }
         }
 
         return result;
+    }
+
+    private static void ReadBoolean(List<PointValue> result, DevicePoint point, string propertyName, JsonElement element)
+    {
+        if (element.TryGetProperty(propertyName, out var valueElement))
+        {
+            try
+            {
+                var b = valueElement.GetBoolean();
+                result.Add(new(point, b.ToString()));
+            }
+            catch { }
+        }
+    }
+
+    private static void ReadFloat(List<PointValue> result, DevicePoint point, string propertyName, JsonElement element)
+    {
+        try
+        {
+            if (element.TryGetProperty(propertyName, out var valueElement) && valueElement.ValueKind == JsonValueKind.Number && valueElement.TryGetDouble(out var value))
+            {
+                result.Add(new(point, value.ToString()));
+            }
+        }
+        catch { }
     }
 
     private static string GetUrl(Device device)
