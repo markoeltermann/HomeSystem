@@ -1,4 +1,3 @@
-
 const addresses = {
     awaySetpoint: "OBJECT_ANALOG_VALUE:0",
     normalSetpoint: "OBJECT_ANALOG_VALUE:1",
@@ -50,13 +49,17 @@ function processStep(httpResult) {
             turnOff('ventilation api returned error code: ' + httpResult.code);
             return;
         }
+        
         const dict = {};
         const body = JSON.parse(httpResult.body);
         for (const element of body) {
+            //if (element.address.indexOf('ANALOG') > 0)
+            //print('address ', element.address, ' value ', element.value);
+            
             dict[element.address] = element.value;
         }
-
-        print(dict[addresses.currentMode]);
+        //print(dict[addresses.normalSetpoint]);
+        //print(dict[addresses.currentMode]);
 
         const isCooling = dict[addresses.isCooling] >= 1;
 
@@ -77,7 +80,9 @@ function processStep(httpResult) {
         } else {
             setPoint -= 1;
         }
-
+        
+        //print('Current temp: ', currentTemp, ' sepoint temp: ', setPoint);
+        
         var delta = currentTemp - setPoint;
         if (delta > 2) {
             delta = 2;
@@ -116,8 +121,8 @@ function processStep(httpResult) {
 
         if (current < 0) {
             current = 0;
-        } else if (current > 65) {
-            current = 65;
+        } else if (current > 100) {
+            current = 100;
         }
 
         print('VALVE: Current value updating to ' + current + ' by step ' + step);
@@ -171,11 +176,11 @@ function getSetpoint(dict) {
     var setPoint = null;
 
     if (currentMode === modes.away) {
-        setPoint = dict[addresses.awaySetpoint];
+        setPoint = +dict[addresses.awaySetpoint];
     } else if (currentMode === modes.normal) {
-        setPoint = dict[addresses.normalSetpoint];
+        setPoint = +dict[addresses.normalSetpoint];
     } else if (currentMode === modes.intensive) {
-        setPoint = dict[addresses.intensiveSetpoint];
+        setPoint = +dict[addresses.intensiveSetpoint];
     }
 
     if (!setPoint) {
