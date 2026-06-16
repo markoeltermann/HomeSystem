@@ -18,6 +18,8 @@ public static class ServiceCollectionExtensions
         services.AddDbContext<HomeSystemContext>(options =>
             options.UseNpgsql(dataSource));
 
+        services.AddScoped(typeof(IConfigurationStore<>), typeof(ConfigurationStore<>));
+
         return services;
     }
 }

@@ -11,6 +11,8 @@ public partial class HomeSystemContext : DbContext
     {
     }
 
+    public virtual DbSet<ConfigurationPoint> ConfigurationPoints { get; set; }
+
     public virtual DbSet<DataType> DataTypes { get; set; }
 
     public virtual DbSet<Device> Devices { get; set; }
@@ -28,6 +30,23 @@ public partial class HomeSystemContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresEnum("job_status", new[] { "Running", "Completed", "Failed" });
+
+        modelBuilder.Entity<ConfigurationPoint>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("configuration_point_pkey");
+
+            entity.ToTable("configuration_point");
+
+            entity.HasIndex(e => e.Type, "uq_configuration_point_type").IsUnique();
+
+            entity.Property(e => e.Id)
+                .UseIdentityAlwaysColumn()
+                .HasColumnName("id");
+            entity.Property(e => e.Type).HasColumnName("type");
+            entity.Property(e => e.Value)
+                .HasColumnType("jsonb")
+                .HasColumnName("value");
+        });
 
         modelBuilder.Entity<DataType>(entity =>
         {

@@ -1,0 +1,81 @@
+@page "/configuration-manager"
+@using BlazorBootstrap
+@using Web.Client.DTOs
+@inject HttpClient Http
+@inject ToastService ToastService
+
+<PageTitle>Configuration</PageTitle>
+
+<div class="container-md">
+    <div class="row justify-content-center">
+        <div class="col col-md-6">
+            <h3 class="mb-4">Configuration</h3>
+
+            @if (Settings == null)
+            {
+                <p>Loading...</p>
+            }
+            else
+            {
+                <form @onsubmit="OnSaveAsync">
+                    @foreach (var setting in Settings)
+                    {
+                        <div class="row mb-3 align-items-center hoverable table-row">
+                            <label class="col-sm-4 col-form-label">@setting.Name</label>
+                            <div class="col-sm-8">
+                                @if (setting.Kind == "bool")
+                                {
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           checked="@(bool.TryParse(setting.Value, out var checkedValue) && checkedValue)"
+                                           @onchange="@(e => setting.Value = e.Value is bool b ? b.ToString().ToLowerInvariant() : "false")" />
+                                }
+                                else if (setting.Kind == "decimal")
+                                {
+                                    <input type="number" class="form-control" @bind="setting.Value" step="0.01" />
+                                }
+                                else if (setting.Kind == "int")
+                                {
+                                    <input type="number" class="form-control" @bind="setting.Value" />
+                                }
+                                else
+                                {
+                                    <input type="text" class="form-control" @bind="setting.Value" />
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private ConfigSettingDto[]? Settings { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Settings = await Http.GetFromJsonAsync<ConfigSettingDto[]>("api/configuration") ?? [];
+    }
+
+    private async Task OnSaveAsync()
+    {
+        if (Settings == null)
+            return;
+
+        var result = await Http.PutAsJsonAsync("api/configuration", Settings);
+        if (result.IsSuccessStatusCode)
+        {
+            ToastService.Notify(new(ToastType.Success, "Configuration saved"));
+        }
+        else
+        {
+            ToastService.Notify(new(ToastType.Danger, "Save failed"));
+        }
+    }
+}
