@@ -16,20 +16,21 @@ public sealed class ConfigurationStore<TSettings>(HomeSystemContext context) : I
     public async Task<TSettings> LoadAsync(CancellationToken cancellationToken = default)
     {
         var settings = new TSettings();
-        var properties = typeof(TSettings).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        var properties = typeof(TSettings)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(property => property.CanWrite && property.GetIndexParameters().Length == 0)
+            .ToArray();
+
+        var keys = properties.Select(property => property.Name).ToArray();
+        var existingPoints = await context.ConfigurationPoints
+            .AsNoTracking()
+            .Where(point => keys.Contains(point.Type))
+            .ToDictionaryAsync(point => point.Type, cancellationToken)
+            .ConfigureAwait(false);
 
         foreach (var property in properties)
         {
-            if (!property.CanWrite || property.GetIndexParameters().Length != 0)
-                continue;
-
-            var key = property.Name;
-            var existing = await context.ConfigurationPoints
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Type == key, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (existing == null)
+            if (!existingPoints.TryGetValue(property.Name, out var existing))
             {
                 property.SetValue(settings, GetDefaultValue(property.PropertyType));
                 continue;
@@ -45,32 +46,34 @@ public sealed class ConfigurationStore<TSettings>(HomeSystemContext context) : I
     {
         ArgumentNullException.ThrowIfNull(settings);
 
-        var properties = typeof(TSettings).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        var properties = typeof(TSettings)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(property => property.CanRead && property.CanWrite && property.GetIndexParameters().Length == 0)
+            .ToArray();
+
+        var keys = properties.Select(property => property.Name).ToArray();
+        var existingPoints = await context.ConfigurationPoints
+            .Where(point => keys.Contains(point.Type))
+            .ToDictionaryAsync(point => point.Type, cancellationToken)
+            .ConfigureAwait(false);
 
         foreach (var property in properties)
         {
-            if (!property.CanRead || !property.CanWrite || property.GetIndexParameters().Length != 0)
-                continue;
-
             var key = property.Name;
             var value = property.GetValue(settings);
             var serialized = SerializeValue(value);
 
-            var existing = await context.ConfigurationPoints
-                .FirstOrDefaultAsync(x => x.Type == key, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (existing == null)
+            if (existingPoints.TryGetValue(key, out var existing))
+            {
+                existing.Value = serialized;
+            }
+            else
             {
                 context.ConfigurationPoints.Add(new ConfigurationPoint
                 {
                     Type = key,
                     Value = serialized,
                 });
-            }
-            else
-            {
-                existing.Value = serialized;
             }
         }
 

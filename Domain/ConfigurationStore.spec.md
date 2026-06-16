@@ -19,7 +19,7 @@ The first implementation must support the following scalar property types:
 - decimal?
 
 ## Read behavior
-- On load, the store reads each property from configuration_point by key.
+- On load, the store reads all relevant configuration_point rows in a single query and maps them by key.
 - If a key does not yet exist in the DB, the property should fall back to the CLR default value for its type.
 - Missing DB values must not be treated as hard errors during load.
 
