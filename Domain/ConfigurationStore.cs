@@ -108,27 +108,6 @@ public sealed class ConfigurationStore<TSettings>(HomeSystemContext context) : I
                 : GetDefaultValue(targetType);
         }
 
-        if (targetType == typeof(string))
-            return JsonSerializer.Deserialize<string>(json, JsonOptions);
-
-        if (targetType == typeof(bool))
-            return JsonSerializer.Deserialize<bool>(json, JsonOptions);
-
-        if (targetType == typeof(bool?))
-            return JsonSerializer.Deserialize<bool?>(json, JsonOptions);
-
-        if (targetType == typeof(int))
-            return JsonSerializer.Deserialize<int>(json, JsonOptions);
-
-        if (targetType == typeof(int?))
-            return JsonSerializer.Deserialize<int?>(json, JsonOptions);
-
-        if (targetType == typeof(decimal))
-            return JsonSerializer.Deserialize<decimal>(json, JsonOptions);
-
-        if (targetType == typeof(decimal?))
-            return JsonSerializer.Deserialize<decimal?>(json, JsonOptions);
-
         return JsonSerializer.Deserialize(json, targetType, JsonOptions);
     }
 }
