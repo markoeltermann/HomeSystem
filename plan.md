@@ -1,43 +1,60 @@
-# Implementation Plan: DB-backed Typed Configuration Store
+# Plan for the configuration UI
 
-## Analysis
+## Goal
+Create a simple configuration settings page in Web/Web.Client/Pages that lets the user edit DB-backed configuration values from configuration_point, using the existing typed model in Domain/ConfigPointModel as the source of truth for the fields to display.
 
-### Strong points
-- The existing Domain project already exposes the persistence boundary through ConfigurationPoint and HomeSystemContext, which makes the feature fit naturally in the current architecture.
-- The current configuration_point table is already a key/value store with a unique key column and a string value column, so it is a good match for a generic typed wrapper.
-- The project already contains a real configuration consumer pattern in ValueReaderService, which gives the implementation a concrete target and a good validation path.
-- Keeping the store in the Domain project is reasonable for this small-scale solution because the current boundary between domain and infrastructure is intentionally lightweight.
+## Scope of this phase
+- Add a new Blazor page in Web/Web.Client/Pages for editing configuration values.
+- Add a backend controller in Web/Web/Controllers to load and save the configuration values.
+- The API should validate incoming values and return HTTP 400 for invalid input, rather than accepting malformed data.
+- Add a DTO in Web/Web.Client/DTOs to represent configuration rows as key/name/value entries instead of duplicating the typed model.
+- The DTO should also carry enough metadata to let the UI choose the correct input control based on the property type, such as bool, decimal, and int.
+- Use HeatPumpScheduleManager.razor as the UI pattern for layout, save behavior, and simple form structure.
 
-### Weak points / risks
-- The value column is now jsonb-based, so type conversion, serialization, and validation must still be explicit, but the parsing path can be standardized around JSON values.
-- The initial version only needs to support string, bool, bool?, int, int?, decimal, and decimal? values, which keeps the first implementation small and predictable.
-- The DB-backed store must behave differently from file-based ConfigModel: a missing key should not be treated as an error on read, but rather as a default value for the property type.
-- The current approach of using IConfiguration directly in some services means the migration path should be gradual to avoid breaking existing consumers.
+## Proposed structure
+1. UI page
+   - Create a page similar to HeatPumpScheduleManager.razor.
+   - Render one editable row per property exposed by ConfigPointModel.
+   - Show the user-friendly display name from the model metadata, not raw property names.
+   - Use the property type to choose the UI control automatically: checkbox for bool, numeric input for decimal/int, and plain text for string if needed.
+   - Provide a Save action that posts the edited values back to the API.
 
-## Clarified assumptions
-- Reuse the existing configuration_point table rather than introducing a new schema.
-- Treat this as a DB-backed typed settings model, not as a strict required-key configuration service like file-based ConfigModel.
-- Map each typed settings model to the existing key/value pattern using the model property names as logical keys.
-- Use JSON as the storage format for all values, with a simple conversion path for the initial supported scalar types: string, bool, bool?, int, int?, decimal, and decimal?.
-- On read, if a key does not exist in the DB yet, return the CLR default value for that property type; on the next save, the value is persisted automatically.
-- Keep the implementation in the Domain project for this solution, because that is the current practical boundary for DB-facing infrastructure.
+2. API/controller
+   - Add a controller under Web/Web/Controllers for configuration settings.
+   - Expose GET and PUT endpoints for reading and saving the DB-backed settings.
+   - The update endpoint should accept partial key/value input and preserve any existing configuration points not included in the payload.
+   - The controller should operate on the generic configuration store infrastructure already introduced in the Domain project.
 
-## Implementation phases
-1. Define the typed configuration abstraction in the Domain project, including a generic load/save contract for settings models.
-2. Implement persistence logic on top of HomeSystemContext and ConfigurationPoint using reflection-based mapping between model properties and configuration keys.
-3. Define conversion rules for JSON-backed scalar values, null handling, and invalid input cases, with explicit handling for missing DB rows as default values rather than exceptions.
-4. Update existing configuration consumers to use the typed store where appropriate, while preserving compatibility for current callers during the transition.
-5. Add tests and verification for load, save, missing-row fallback behavior, invalid-value handling, and updates to existing rows.
+3. DTO design
+   - Add a generic key/name/value DTO shape, for example:
+     - Key: the property name used in the DB row
+     - Name: the user-facing label from DisplayName metadata
+     - Value: the current value to edit
+     - Type: the CLR type name or a simple kind flag (bool / decimal / int / string) used by the UI to render the right input.
+     - Optional: a format hint such as "decimal" or "number" if the UI needs to support fractional values more explicitly.
+   - This avoids recreating the typed ConfigPointModel in every UI/API boundary and gives the page enough information to render type-aware controls.
 
-## Relevant files
-- Domain/ConfigurationPoint.cs
-- Domain/HomeSystemContext.cs
-- Domain/ServiceCollectionExtensions.cs
-- ValueReaderService/Services/ConfigModel.cs
-- ValueReaderService/Services/MissingConfigKeyException.cs
-- Domain/ConfigurationPoint.cs (jsonb-backed value storage)
+4. Data flow
+   - The page calls the controller to load configuration rows.
+   - The controller maps the DB-backed values into the DTO model for the UI.
+   - The page sends edited DTO entries back to the controller.
+   - The controller validates the incoming DTO and rejects invalid values with HTTP 400.
+   - The controller writes the values back into configuration_point using the existing typed store logic while preserving untouched settings.
 
-## Verification steps
-1. Build the solution to confirm the new abstractions and wiring compile cleanly.
-2. Add focused tests for typed load/save behavior, including missing-row fallback to defaults, missing-row creation on save, and invalid-value handling.
-3. Verify that existing configuration rows are updated correctly and that adding a new property to a settings model does not require manual database changes.
+## Design considerations
+- The UI should be simple and generic so that adding a new property to ConfigPointModel automatically shows up in the page without changing the page logic.
+- The page should not depend on hard-coded setting names beyond the reflection-based model metadata.
+- The DTO should stay generic enough to support future properties without requiring repeated manual DTO changes.
+- The update flow should be designed so that partial submissions only affect the keys they contain and do not reset unrelated configuration points to defaults.
+- The DTO metadata should be sufficient for the UI to render controls correctly without needing to inspect the Domain model directly in the page.
+- The solution should remain additive to the existing IConfiguration/ConfigModel flow; this page is for user-editable DB-backed settings only.
+
+## Implementation steps for later work
+1. Add the UI page and basic layout based on HeatPumpScheduleManager.
+2. Add the configuration controller with GET/PUT endpoints.
+3. Introduce the generic key/name/value DTO.
+4. Wire the page to the controller and confirm the render/save flow.
+5. Verify the page works with the current two properties and remains easy to extend when new typed settings are added.
+
+## Notes
+- This plan intentionally stops at the UI/controller/DTO design stage.
