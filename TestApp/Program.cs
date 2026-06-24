@@ -36,7 +36,8 @@ IHost host = Host.CreateDefaultBuilder(args)
 
         //services.AddHostedService<SolarModelPOC>();
         //services.AddHostedService<MyUplinkEnumValueMigrator>();
-        services.AddHostedService<DynessApiTester>();
+        //services.AddHostedService<DynessApiTester>();
+        services.AddHostedService<ShellyHeatDistributionTester>();
         services.AddScoped<PointValueStoreAdapter>();
         services.AddSingleton<ConfigModel>();
 

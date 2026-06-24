@@ -96,9 +96,8 @@ function processStep(httpResult) {
 
         const latestDelta = getMeanDelta(3, false);
         const fullDelta = getMeanDelta(6, false);
-        const fullDeltaWithDiff = getMeanDelta(6, true);
-        // print('VALVE: Latest delta ' + latestDelta);
-        print('VALVE: Full delta ' + fullDelta + ', with diff ' + fullDeltaWithDiff + ', latest delta ' + latestDelta);
+        const diff = getMeanDelta(6, true);
+        print('VALVE: Full delta ' + fullDelta + ', with diff ' + diff + ', latest delta ' + latestDelta);
 
         // if (latestDelta <= 0.2 && latestDelta >= -0.2) {
         //     isProcessing = false;
@@ -112,7 +111,8 @@ function processStep(httpResult) {
         //     return;
         // }
 
-        const step = fullDeltaWithDiff / 30 * (current / 30 + 1);
+        // const step = fullDeltaWithDiff / 30 * (current / 30 + 1);
+        const step = ((fullDelta * fullDelta / 3 * Math.sign(fullDelta) + fullDelta * 2 / 3) + diff) / 30 * (current / 30 + 1);
         // const step = fullDelta * fullDelta * 5 / 60 + fullDelta * 1 / 6;
         // const sign = Math.sign(fullDelta);
         // const absFullDelta = Math.abs(fullDelta);
@@ -137,18 +137,21 @@ function processStep(httpResult) {
     }
 }
 
-function getMeanDelta(n, withDiffs) {
+function getMeanDelta(n, diffs) {
     const start = n > deltas.length ? 0 : deltas.length - n;
 
     var result = 0;
 
     for (let i = start; i < deltas.length; i++) {
         const current = deltas[i];
-        result += current;
-        if (withDiffs && i > 0) {
-            const prev = deltas[i - 1];
-            const diff = current - prev;
-            result += diff * 9;
+        if (diffs) {
+            if (i > 0) {
+                const prev = deltas[i - 1];
+                const diff = current - prev;
+                result += diff * 9;
+            }
+        } else {
+            result += current;
         }
     }
 

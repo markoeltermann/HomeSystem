@@ -8,6 +8,11 @@ public class ShellyDeviceReader(
     IHttpClientFactory httpClientFactory)
     : DeviceReader(logger)
 {
+    private static readonly JsonSerializerOptions camelCaseSerializationOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
     protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
         var url = GetUrl(device);
@@ -107,5 +112,41 @@ public class ShellyDeviceReader(
     public Task SendLightSetCommandAsync(Device device, int id, bool on, int brightness)
     {
         return SendCommandAsync(device, "Light.Set", new { id, on, brightness });
+    }
+
+    public async Task SendHeatDistributionModeAsync(Device device, HeatDistributionMode mode, double setpoint, double fixedValue)
+    {
+        try
+        {
+            var url = GetUrl(device);
+
+            url += $"/script/1/mode";
+
+            using var httpClient = httpClientFactory.CreateClient(nameof(ShellyDeviceReader));
+            var json = JsonSerializer.Serialize(new HeatDistributionModePayload
+            {
+                Mode = mode == HeatDistributionMode.Fixed ? "fixed" : "setpoint",
+                Setpoint = setpoint,
+                FixedValue = fixedValue
+            }, camelCaseSerializationOptions);
+
+            var response = await httpClient.PostAsync(url, new StringContent(json));
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Logger.LogError("Failed to send heat distribution mode to Shelly device {DeviceId}. Status code: {StatusCode}", device.Id, response.StatusCode);
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "Error sending heat distribution mode to Shelly device {DeviceId}.", device.Id);
+        }
+    }
+
+    private class HeatDistributionModePayload
+    {
+        public string? Mode { get; set; }
+        public double Setpoint { get; set; }
+        public double FixedValue { get; set; }
     }
 }
