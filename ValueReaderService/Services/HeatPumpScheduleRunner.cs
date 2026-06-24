@@ -131,7 +131,7 @@ public class HeatPumpScheduleRunner(
                 {
                     thermostatMode.NewValue = comfortEnumValue;
                 }
-                if (heatingOffset.CurrentValue.Value >= 0)
+                else if (heatingOffset.CurrentValue.Value >= 0)
                 {
                     if ((int)thermostatMode.CurrentValue.Value == comfortEnumValue)
                         thermostatMode.NewValue = comfortEnumValue;
