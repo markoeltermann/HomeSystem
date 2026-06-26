@@ -2,6 +2,7 @@
 using System.Net.Http.Json;
 
 namespace ValueReaderService.Services.YrNoWeatherForecast;
+
 public class YrNoWeatherForecastReader(ILogger<DeviceReader> logger, ConfigModel configModel, IHttpClientFactory httpClientFactory) : DeviceReader(logger)
 {
     public override bool StorePointsWithReplace => true;
@@ -50,6 +51,7 @@ public class YrNoWeatherForecastReader(ILogger<DeviceReader> logger, ConfigModel
         foreach (var item in timeseries)
         {
             var details = item.Data!.Instant!.Details!;
+            var nextHourDetails = item.Data?.Next1Hours?.Details;
 
             decimal? value = null;
             foreach (var point in devicePoints)
@@ -67,6 +69,11 @@ public class YrNoWeatherForecastReader(ILogger<DeviceReader> logger, ConfigModel
                     "wind_from_direction" => details.WindFromDirection,
                     "wind_speed" => details.WindSpeed,
                     "wind_speed_of_gust" => details.WindSpeedOfGust,
+                    "thunder_probability" => nextHourDetails?.ProbabilityOfThunder,
+                    "precipitation_probability" => nextHourDetails?.ProbabilityOfPrecipitation,
+                    "min_precipitation_amount" => nextHourDetails?.PrecipitationAmountMin,
+                    "max_precipitation_amount" => nextHourDetails?.PrecipitationAmountMax,
+                    "precipitation_amount" => nextHourDetails?.PrecipitationAmount,
                     _ => null,
                 };
                 if (value != null)
