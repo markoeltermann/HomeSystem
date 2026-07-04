@@ -123,7 +123,7 @@ function processStep() {
             //     return;
             // }
 
-            const step = ((fullDelta * fullDelta / 3 * Math.sign(fullDelta) + fullDelta * 2 / 3) + diff) / 20 * (current / 20 + 1);
+            const step = ((fullDelta * fullDelta / 3 * Math.sign(fullDelta) + fullDelta * 2 / 3) + diff) / 40 * (current / 40 + 1);
             // const step = fullDelta * fullDelta * 5 / 60 + fullDelta * 1 / 6;
             // const sign = Math.sign(fullDelta);
             // const absFullDelta = Math.abs(fullDelta);
