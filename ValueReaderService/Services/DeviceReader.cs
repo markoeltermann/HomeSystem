@@ -55,21 +55,25 @@ public abstract class DeviceReader(ILogger<DeviceReader> logger, HomeSystemConte
         var deviceTypes = descriptors.Select(x => x.attribute.DeviceType).Distinct().ToArray();
 
         var matchingDevices = await DbContext.Devices
-            .AsNoTracking()
+            .AsNoTrackingWithIdentityResolution()
             .Where(x => deviceTypes.Contains(x.Type))
             .Include(x => x.DevicePoints)
+                .ThenInclude(x => x.DataType)
+            .Include(x => x.DevicePoints)
+                .ThenInclude(x => x.Unit)
+            .AsSplitQuery()
             .ToListAsync();
 
         foreach (var (member, attribute) in descriptors)
         {
             var targetDevice = matchingDevices.FirstOrDefault(x =>
                 x.Type == attribute.DeviceType
-                && (attribute.DeviceSubType is null || x.SubType == attribute.DeviceSubType)) 
+                && (attribute.DeviceSubType is null || x.SubType == attribute.DeviceSubType))
                 ?? throw new InvalidOperationException($"Unable to auto-load device '{attribute.DeviceType}' ({attribute.DeviceSubType}) from the database.");
 
-            var matchingPoint = targetDevice.DevicePoints.FirstOrDefault(x => x.Type == attribute.DevicePointType) 
+            var matchingPoint = targetDevice.DevicePoints.FirstOrDefault(x => x.Type == attribute.DevicePointType)
                 ?? throw new InvalidOperationException($"Unable to auto-load device point '{attribute.DevicePointType}' for device '{attribute.DeviceType}' ({attribute.DeviceSubType}).");
-            
+
             AssignAutoLoadedPoint(member, matchingPoint);
         }
     }

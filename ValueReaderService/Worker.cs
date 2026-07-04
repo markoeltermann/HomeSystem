@@ -380,6 +380,7 @@ public class Worker(ILogger<Worker> logger, IServiceProvider serviceProvider, IC
                     .AsNoTracking()
                     .Include(d => d.DevicePoints).ThenInclude(dp => dp.DataType)
                     .Include(d => d.DevicePoints).ThenInclude(dp => dp.EnumMembers)
+                    .AsSplitQuery()
                     .ToListAsync();
                 return devices;
             }
