@@ -8,8 +8,9 @@ namespace ValueReaderService.Services.AirobotThermostat;
 public class AirobotThermostatReader(
     ILogger<DeviceReader> logger,
     IHttpClientFactory httpClientFactory,
-    IConfiguration configuration)
-    : DeviceReader(logger)
+    IConfiguration configuration,
+    HomeSystemContext dbContext)
+    : DeviceReader(logger, dbContext)
 {
     protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {

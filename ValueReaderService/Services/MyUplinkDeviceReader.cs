@@ -8,8 +8,9 @@ namespace ValueReaderService.Services;
 
 public class MyUplinkDeviceReader(
     ILogger<DeviceReader> logger,
-    IHttpClientFactory httpClientFactory)
-    : DeviceReader(logger)
+    IHttpClientFactory httpClientFactory,
+    HomeSystemContext dbContext)
+    : DeviceReader(logger, dbContext)
 {
     protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {

@@ -3,7 +3,11 @@ using System.Net.Http.Json;
 
 namespace ValueReaderService.Services.YrNoWeatherForecast;
 
-public class YrNoWeatherForecastReader(ILogger<DeviceReader> logger, ConfigModel configModel, IHttpClientFactory httpClientFactory) : DeviceReader(logger)
+public class YrNoWeatherForecastReader(
+    ILogger<DeviceReader> logger,
+    ConfigModel configModel,
+    IHttpClientFactory httpClientFactory,
+    HomeSystemContext dbContext) : DeviceReader(logger, dbContext)
 {
     public override bool StorePointsWithReplace => true;
 

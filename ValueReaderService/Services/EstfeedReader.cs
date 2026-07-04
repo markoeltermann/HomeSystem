@@ -6,7 +6,10 @@ using System.Text.Json;
 
 namespace ValueReaderService.Services;
 
-public class EstfeedReader(ILogger<DeviceReader> logger, IHttpClientFactory httpClientFactory) : DeviceReader(logger)
+public class EstfeedReader(
+    ILogger<DeviceReader> logger,
+    IHttpClientFactory httpClientFactory,
+    HomeSystemContext dbContext) : DeviceReader(logger, dbContext)
 {
     public override bool StorePointsWithReplace => true;
 

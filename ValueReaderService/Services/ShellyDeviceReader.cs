@@ -5,8 +5,9 @@ namespace ValueReaderService.Services;
 
 public class ShellyDeviceReader(
     ILogger<DeviceReader> logger,
-    IHttpClientFactory httpClientFactory)
-    : DeviceReader(logger)
+    IHttpClientFactory httpClientFactory,
+    HomeSystemContext dbContext)
+    : DeviceReader(logger, dbContext)
 {
     private static readonly JsonSerializerOptions camelCaseSerializationOptions = new()
     {

@@ -12,7 +12,8 @@ public class ElectricityPriceReader(
     ILogger<ElectricityPriceReader> logger,
     PointValueStoreAdapter pointValueStoreAdapter,
     IHttpClientFactory httpClientFactory,
-    ConfigModel configModel) : DeviceReader(logger)
+    ConfigModel configModel,
+    HomeSystemContext dbContext) : DeviceReader(logger, dbContext)
 {
     public override bool StorePointsWithReplace => true;
 

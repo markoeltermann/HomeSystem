@@ -10,7 +10,7 @@ public class InverterScheduleRunner(
     HomeSystemContext dbContext,
     PointValueStoreAdapter pointValueStoreAdapter,
     SolarmanV5Adapter solarmanV5Adapter,
-    ConfigModel configModel) : DeviceReader(logger)
+    ConfigModel configModel) : DeviceReader(logger, dbContext)
 {
     protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
@@ -27,7 +27,9 @@ public class InverterScheduleRunner(
         if (batteryLevelPoint == null || gridChargeEnablePoint == null || adaptiveSellEnablePoint == null || batterySellLevelPoint == null)
             return null;
 
-        var devices = await dbContext.Devices.AsNoTracking().Include(x => x.DevicePoints).Where(x => x.Type == "electricity_price" || x.Type == "deye_inverter").ToArrayAsync();
+        var devices = await DbContext.Devices.AsNoTracking()
+            .Include(x => x.DevicePoints)
+            .Where(x => x.Type == "electricity_price" || x.Type == "deye_inverter").ToArrayAsync();
 
         var electricityPriceDevice = devices.FirstOrDefault(x => x.Type == "electricity_price");
         var electricityPricePoint = electricityPriceDevice?.DevicePoints.FirstOrDefault(x => x.Address == "nps-price-raw");
@@ -82,7 +84,7 @@ public class InverterScheduleRunner(
         await Task.Delay(50);
 #endif
 
-        var inverterSettings = await dbContext.InverterSettings.AsNoTracking().FirstOrDefaultAsync();
+        var inverterSettings = await DbContext.InverterSettings.AsNoTracking().FirstOrDefaultAsync();
         if (inverterSettings != null)
         {
             var isAdaptiveSellEnabled = GetCurrentValue(timestampLocal, adaptiveSellEnableValues) > 0.0;

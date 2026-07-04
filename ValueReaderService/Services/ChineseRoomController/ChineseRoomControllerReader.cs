@@ -4,8 +4,8 @@ using System.Text.Json;
 
 namespace ValueReaderService.Services.ChineseRoomController;
 
-public class ChineseRoomControllerReader(ILogger<DeviceReader> logger)
-    : DeviceReader(logger)
+public class ChineseRoomControllerReader(ILogger<DeviceReader> logger, HomeSystemContext dbContext)
+    : DeviceReader(logger, dbContext)
 {
     protected override async Task<IList<PointValue>?> ExecuteAsyncInternal(Device device, DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {

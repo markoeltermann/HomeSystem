@@ -3,7 +3,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ValueReaderService.Services;
 
-public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSystemContext dbContext, PointValueStoreAdapter pointValueStoreAdapter, ConfigModel configModel) : DeviceReader(logger)
+public class ConsumptionCalculatorRunner(
+    ILogger<DeviceReader> logger,
+    HomeSystemContext dbContext,
+    PointValueStoreAdapter pointValueStoreAdapter,
+    ConfigModel configModel) : DeviceReader(logger, dbContext)
 {
     private const double MinSolarElevation = -1.0;
 
@@ -23,7 +27,7 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
 
     private async Task<IList<PointValue>?> CalculateElectricityCosts(DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
-        var estfeedDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "estfeed")
+        var estfeedDevice = await DbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "estfeed")
             ?? throw new InvalidOperationException("Estfeed device not found");
 
         var consumptionPoint = estfeedDevice.DevicePoints.FirstOrDefault(x => x.Type == "15-min-consumption")
@@ -128,10 +132,10 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
 
     private async Task<IList<PointValue>?> CalculateDayPVEnergyUsingPower(DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
-        var inverterDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "deye_inverter")
+        var inverterDevice = await DbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "deye_inverter")
             ?? throw new InvalidOperationException("Inverter device not found");
 
-        var solarModelDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "solar_model")
+        var solarModelDevice = await DbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "solar_model")
             ?? throw new InvalidOperationException("Solar model device not found");
 
         var pvInputPowerPoint = inverterDevice.DevicePoints.FirstOrDefault(x => x.Type == "pv-input-power")
@@ -174,10 +178,10 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
 
     private async Task<IList<PointValue>?> CalculateUsingEnergy(DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
-        var inverterDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "deye_inverter")
+        var inverterDevice = await DbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "deye_inverter")
                     ?? throw new InvalidOperationException("Inverter device not found");
 
-        var solarModelDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "solar_model")
+        var solarModelDevice = await DbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "solar_model")
             ?? throw new InvalidOperationException("Solar model device not found");
 
         var totalPvEnergyPoint = inverterDevice.DevicePoints.FirstOrDefault(x => x.Type == "total-pv-energy")
@@ -282,7 +286,7 @@ public class ConsumptionCalculatorRunner(ILogger<DeviceReader> logger, HomeSyste
 
     private async Task<IList<PointValue>?> CalculatePrices(DateTime timestamp, ICollection<DevicePoint> devicePoints)
     {
-        var priceDevice = await dbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "electricity_price")
+        var priceDevice = await DbContext.Devices.Include(x => x.DevicePoints).FirstOrDefaultAsync(x => x.Type == "electricity_price")
             ?? throw new InvalidOperationException("Electricity price device not found");
 
         var gridPriceRawPoint = priceDevice.DevicePoints.FirstOrDefault(x => x.Type == "grid-price-raw")

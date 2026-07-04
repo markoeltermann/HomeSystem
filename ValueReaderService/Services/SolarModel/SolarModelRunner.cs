@@ -10,7 +10,11 @@ using System.Reflection.Emit;
 
 namespace ValueReaderService.Services.SolarModel;
 
-public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configModel, PointValueStoreAdapter pointValueStoreAdapter, HomeSystemContext dbContext) : DeviceReader(logger)
+public class SolarModelRunner(
+    ILogger<DeviceReader> logger,
+    ConfigModel configModel,
+    PointValueStoreAdapter pointValueStoreAdapter,
+    HomeSystemContext dbContext) : DeviceReader(logger, dbContext)
 {
     public override bool StorePointsWithReplace => true;
 
@@ -56,7 +60,7 @@ public class SolarModelRunner(ILogger<DeviceReader> logger, ConfigModel configMo
         var start = DateOnly.FromDateTime(timestamp.AddDays(-365));
         var end = DateOnly.FromDateTime(timestamp.AddDays(2));
 
-        var devices = dbContext.Devices.Where(x => x.Type == "solar_model" || x.Type == "deye_inverter" || x.Type == "yrno_weather_forecast")
+        var devices = DbContext.Devices.Where(x => x.Type == "solar_model" || x.Type == "deye_inverter" || x.Type == "yrno_weather_forecast")
             .Include(x => x.DevicePoints)
             .ToList();
 

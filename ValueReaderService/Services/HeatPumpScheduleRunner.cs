@@ -15,7 +15,7 @@ public class HeatPumpScheduleRunner(
     IHttpClientFactory httpClientFactory,
     AirobotThermostatReader airobotThermostatReader,
     ShellyDeviceReader shellyDeviceReader,
-    IConfigurationStore<ConfigPointModel> configStore) : DeviceReader(logger)
+    IConfigurationStore<ConfigPointModel> configStore) : DeviceReader(logger, dbContext)
 {
 
     private DeviceValue heatingOffset = new(-10, 10);
@@ -251,7 +251,7 @@ public class HeatPumpScheduleRunner(
 
     private async Task<List<Device>> InitializeDevices()
     {
-        var devices = await dbContext.Devices.AsNoTrackingWithIdentityResolution()
+        var devices = await DbContext.Devices.AsNoTrackingWithIdentityResolution()
             .Include(x => x.DevicePoints)
             .ThenInclude(x => x.EnumMembers)
             .Where(x => x.Type == "heat_pump"

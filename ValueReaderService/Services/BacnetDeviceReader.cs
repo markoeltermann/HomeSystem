@@ -7,7 +7,8 @@ namespace ValueReaderService.Services;
 public class BacnetDeviceReader(
     ILogger<BacnetDeviceReader> logger,
     IConfiguration configuration,
-    IHttpClientFactory httpClientFactory) : DeviceReader(logger)
+    IHttpClientFactory httpClientFactory,
+    HomeSystemContext dbContext) : DeviceReader(logger, dbContext)
 {
     private readonly JsonSerializerOptions jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
