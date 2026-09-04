@@ -11,3 +11,6 @@
 
 ### Clarification before complex tasks
 - If a prompt is ambiguous or the task could involve significant code generation, architectural decisions, or multi-file changes, ask a single focused clarifying question before proceeding.
+
+### Automated tests
+- Do not write automated tests unless the prompt explicitly asks for them.
