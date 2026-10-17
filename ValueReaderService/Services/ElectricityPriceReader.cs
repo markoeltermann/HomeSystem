@@ -47,18 +47,38 @@ public class ElectricityPriceReader(
 
         using var httpClient = httpClientFactory.CreateClient(nameof(ElectricityPriceReader));
 
-        var eleringUrl = "https://dashboard.elering.ee/api/nps/price";
-        eleringUrl = QueryHelpers.AddQueryString(eleringUrl, [KeyValuePair.Create("start", (string?)today.ToUniversalTime().ToString("O")),
+        NpsPrice[] validPricePoints;
+
+        var spotHintaUrl = "https://api.spot-hinta.fi/TodayAndDayForward?region=EE&priceResolution=15";
+        var spotHintaResponse = await httpClient.GetFromJsonAsync<SpotHintaValue[]?>(spotHintaUrl);
+
+        if (spotHintaResponse != null && spotHintaResponse.Length > 20)
+        {
+            validPricePoints = spotHintaResponse
+                .Select(x => new NpsPrice
+                {
+                    Timestamp = x.DateTime.UtcDateTime,
+                    Price = x.PriceNoTax * 1000m,
+                })
+                .OrderBy(x => x.Timestamp)
+                .ToArray();
+        }
+        else
+        {
+
+            var eleringUrl = "https://dashboard.elering.ee/api/nps/price";
+            eleringUrl = QueryHelpers.AddQueryString(eleringUrl, [KeyValuePair.Create("start", (string?)today.ToUniversalTime().ToString("O")),
             KeyValuePair.Create("end", (string?)tomorrow.AddDays(2).ToUniversalTime().ToString("O"))]);
 
-        var npsResponse = await httpClient.GetFromJsonAsync<NpsPriceResponse?>(eleringUrl);
-        if (npsResponse == null || npsResponse.Success != true || npsResponse.Data == null || npsResponse.Data.EE == null)
-        {
-            return null;
-        }
+            var npsResponse = await httpClient.GetFromJsonAsync<NpsPriceResponse?>(eleringUrl);
+            if (npsResponse == null || npsResponse.Success != true || npsResponse.Data == null || npsResponse.Data.EE == null)
+            {
+                return null;
+            }
 
-        var validPricePoints = npsResponse.Data.EE.Where(x => x.UnixTimestamp.HasValue && x.Price.HasValue)
-            .ToArray();
+            validPricePoints = npsResponse.Data.EE.Where(x => x.UnixTimestamp.HasValue && x.Price.HasValue)
+                .ToArray();
+        }
 
         if (validPricePoints.Count(x => x.Timestamp > tomorrow) < 20)
         {
@@ -343,5 +363,23 @@ public class ElectricityPriceReader(
     {
         [JsonPropertyName("ee")]
         public NpsPrice[]? EE { get; set; }
+    }
+
+    private class SpotHintaValue
+    {
+        // Example:
+        /* 
+        {
+            "Rank": 62,
+            "DateTime": "2026-10-17T00:00:00+03:00",
+            "PriceNoTax": 0.1339,
+            "PriceWithTax": 0.16604
+        }
+        */
+
+        public DateTimeOffset DateTime { get; set; }
+        public decimal PriceNoTax { get; set; }
+        public decimal PriceWithTax { get; set; }
+        public int Rank { get; set; }
     }
 }
