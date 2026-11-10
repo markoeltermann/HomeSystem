@@ -29,10 +29,13 @@ public class DeviceReaderTests
                     Name = "Temperature",
                     Address = "temp",
                     Type = "temperature",
+                    DataType = new DataType { Name = "number" },
                     Device = null!
                 }
             ]
         };
+
+        sourceDevice.DevicePoints.First().Device = sourceDevice;
         dbContext.Devices.Add(sourceDevice);
         await dbContext.SaveChangesAsync();
 

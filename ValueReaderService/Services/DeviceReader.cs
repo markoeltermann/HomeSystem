@@ -61,6 +61,8 @@ public abstract class DeviceReader(ILogger<DeviceReader> logger, HomeSystemConte
                 .ThenInclude(x => x.DataType)
             .Include(x => x.DevicePoints)
                 .ThenInclude(x => x.Unit)
+            .Include(x => x.DevicePoints)
+                .ThenInclude(x => x.EnumMembers)
             .AsSplitQuery()
             .ToListAsync();
 

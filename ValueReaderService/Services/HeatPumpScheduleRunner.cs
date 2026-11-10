@@ -17,6 +17,32 @@ public class HeatPumpScheduleRunner(
     ShellyDeviceReader shellyDeviceReader,
     IConfigurationStore<ConfigPointModel> configStore) : DeviceReader(logger, dbContext)
 {
+    [DevicePointAutoLoad("heat_pump", null, "heating-offset")]
+    private DevicePoint HeatingOffsetPoint { get; set; } = null!;
+
+    [DevicePointAutoLoad("heat_pump", null, "hot-water-mode")]
+    private DevicePoint HotWaterModePoint { get; set; } = null!;
+
+    [DevicePointAutoLoad("heat_pump", null, "heating-degree-minutes")]
+    private DevicePoint HeatingDegreeMinutesPoint { get; set; } = null!;
+
+    [DevicePointAutoLoad("heat_pump", null, "cooling-degree-minutes")]
+    private DevicePoint CoolingDegreeMinutesPoint { get; set; } = null!;
+
+    [DevicePointAutoLoad("heat_pump", null, "status")]
+    private DevicePoint StatusPoint { get; set; } = null!;
+
+    [DevicePointAutoLoad("heat_pump", null, "floor-circuit-supply-temperature")]
+    private DevicePoint FloorCircuitSupplyTemperaturePoint { get; set; } = null!;
+
+    [DevicePointAutoLoad("heat_pump", null, "heat-pump-supply-temperature")]
+    private DevicePoint HeatPumpSupplyTemperaturePoint { get; set; } = null!;
+
+    [DevicePointAutoLoad("airobot_thermostat", "living-room", "mode")]
+    private DevicePoint ThermostatModePoint { get; set; } = null!;
+
+    [DevicePointAutoLoad("yrno_weather_forecast", null, "air-temperature")]
+    private DevicePoint AirTemperatureForecastPoint { get; set; } = null!;
 
     private DeviceValue heatingOffset = new(-10, 10);
     private DeviceValue heatingDegreeMinutes = new(-300, 300);
@@ -28,7 +54,6 @@ public class HeatPumpScheduleRunner(
     private double? outdoorTemperature;
     private Device? heatPumpDevice;
     private Device? livingRoomThermostat;
-    private Device? weatherForecastDevice;
     private Device? heatDistributionControllerDevice;
     private DeviceAddress? heatPumpAddress;
     private HeatDistributionMode? newHeatDistributionMode;
@@ -50,42 +75,32 @@ public class HeatPumpScheduleRunner(
         var devices = await InitializeDevices();
         EnsureDevicesInitialized();
 
-        var heatingOffsetPoint = GetPointByType(heatPumpDevice, "heating-offset");
-        var hotWaterModePoint = GetPointByType(heatPumpDevice, "hot-water-mode");
-        var heatingDegreeMinutesPoint = GetPointByType(heatPumpDevice, "heating-degree-minutes");
-        var coolingDegreeMinutesPoint = GetPointByType(heatPumpDevice, "cooling-degree-minutes");
-        var statusPoint = GetPointByType(heatPumpDevice, "status");
-        var floorCircuitSupplyTemperaturePoint = GetPointByType(heatPumpDevice, "floor-circuit-supply-temperature");
-        var heatPumpSupplyTemperaturePoint = GetPointByType(heatPumpDevice, "heat-pump-supply-temperature");
-        var heatingEnumValue = GetRequiredEnumValue(statusPoint.EnumMembers, "heating");
-        var defrostingEnumValue = GetRequiredEnumValue(statusPoint.EnumMembers, "defrosting");
-        var hotWaterEnumValue = GetRequiredEnumValue(statusPoint.EnumMembers, "hot-water");
-        var coolingEnumValue = GetRequiredEnumValue(statusPoint.EnumMembers, "cooling");
+        var heatingEnumValue = GetRequiredEnumValue(StatusPoint.EnumMembers, "heating");
+        var defrostingEnumValue = GetRequiredEnumValue(StatusPoint.EnumMembers, "defrosting");
+        var hotWaterEnumValue = GetRequiredEnumValue(StatusPoint.EnumMembers, "hot-water");
+        var coolingEnumValue = GetRequiredEnumValue(StatusPoint.EnumMembers, "cooling");
 
-        var thermostatModePoint = livingRoomThermostat?.DevicePoints.FirstOrDefault(x => x.Type == "mode");
-        var comfortEnumValue = GetEnumValue(thermostatModePoint?.EnumMembers, "comfort");
-        var awayEnumValue = GetEnumValue(thermostatModePoint?.EnumMembers, "away");
+        var comfortEnumValue = GetEnumValue(ThermostatModePoint.EnumMembers, "comfort");
+        var awayEnumValue = GetEnumValue(ThermostatModePoint.EnumMembers, "away");
 
         var heatingOffsetSchedulePoint = GetPointByType(devicePoints, "heating-offset-schedule");
         var hotWaterModeSchedulePoint = GetPointByType(devicePoints, "hot-water-mode-schedule");
 
-        var actualHeatingOffsetValues = await pointValueStoreAdapter.Get(heatingOffsetPoint.Id, date, fiveMinResolution: true);
-        var actualHotWaterModeValues = await pointValueStoreAdapter.Get(hotWaterModePoint.Id, date, fiveMinResolution: true);
-        var heatingDegreeMinutesValues = await pointValueStoreAdapter.Get(heatingDegreeMinutesPoint.Id, date, fiveMinResolution: true);
-        var coolingDegreeMinutesValues = await pointValueStoreAdapter.Get(coolingDegreeMinutesPoint.Id, date, fiveMinResolution: true);
-        var statusValues = await pointValueStoreAdapter.Get(statusPoint.Id, date, fiveMinResolution: true);
+        var actualHeatingOffsetValues = await pointValueStoreAdapter.Get(HeatingOffsetPoint.Id, date, fiveMinResolution: true);
+        var actualHotWaterModeValues = await pointValueStoreAdapter.Get(HotWaterModePoint.Id, date, fiveMinResolution: true);
+        var heatingDegreeMinutesValues = await pointValueStoreAdapter.Get(HeatingDegreeMinutesPoint.Id, date, fiveMinResolution: true);
+        var coolingDegreeMinutesValues = await pointValueStoreAdapter.Get(CoolingDegreeMinutesPoint.Id, date, fiveMinResolution: true);
+        var statusValues = await pointValueStoreAdapter.Get(StatusPoint.Id, date, fiveMinResolution: true);
         statusValue = PointValueStoreAdapter.GetCurrentValue(timestampLocal, statusValues);
-        var floorCircuitSupplyTemperatureValues = await pointValueStoreAdapter.Get(floorCircuitSupplyTemperaturePoint.Id, date, fiveMinResolution: true);
+        var floorCircuitSupplyTemperatureValues = await pointValueStoreAdapter.Get(FloorCircuitSupplyTemperaturePoint.Id, date, fiveMinResolution: true);
         floorCircuitSupplyTemperature = PointValueStoreAdapter.GetCurrentValue(timestampLocal, floorCircuitSupplyTemperatureValues);
-        var heatPumpSupplyTemperatureValues = await pointValueStoreAdapter.Get(heatPumpSupplyTemperaturePoint.Id, date, fiveMinResolution: true);
+        var heatPumpSupplyTemperatureValues = await pointValueStoreAdapter.Get(HeatPumpSupplyTemperaturePoint.Id, date, fiveMinResolution: true);
         var heatPumpSupplyTemperature = PointValueStoreAdapter.GetCurrentValue(timestampLocal, heatPumpSupplyTemperatureValues);
 
         var heatingOffsetScheduleValues = await pointValueStoreAdapter.Get(heatingOffsetSchedulePoint.Id, date, fiveMinResolution: true);
         var hotWaterModeScheduleValues = await pointValueStoreAdapter.Get(hotWaterModeSchedulePoint.Id, date, fiveMinResolution: true);
 
-        var thermostatModeValues = thermostatModePoint != null
-            ? await pointValueStoreAdapter.Get(thermostatModePoint.Id, date, fiveMinResolution: true)
-            : null;
+        var thermostatModeValues = await pointValueStoreAdapter.Get(ThermostatModePoint.Id, date, fiveMinResolution: true);
 
         outdoorTemperature = await GetOutdoorTemperature(timestampLocal, date, devices);
 
@@ -117,9 +132,9 @@ public class HeatPumpScheduleRunner(
         {
             heatingDegreeMinutes.NewValue = -60;
         }
-        else if (outdoorTemperature >= 5 && heatingDegreeMinutes.CurrentValue < -150)
+        else if (outdoorTemperature >= 0 && heatingDegreeMinutes.CurrentValue < -80)
         {
-            heatingDegreeMinutes.NewValue = -130;
+            heatingDegreeMinutes.NewValue = -60;
         }
 
         if (thermostatModeValues != null && heatingOffset.CurrentValue.HasValue)
@@ -145,8 +160,7 @@ public class HeatPumpScheduleRunner(
             }
         }
 
-        var airTemperatureForecastPoint = GetPointByType(weatherForecastDevice, "air-temperature");
-        var airTemperatureForecastValues = await pointValueStoreAdapter.Get(airTemperatureForecastPoint.Id, date, date.AddDays(1), fiveMinResolution: true);
+        var airTemperatureForecastValues = await pointValueStoreAdapter.Get(AirTemperatureForecastPoint.Id, date, date.AddDays(1), fiveMinResolution: true);
 
         var after24Hours = timestamp.AddHours(24);
         var upcomingAirTemperatureValues = airTemperatureForecastValues.Values!
@@ -230,7 +244,7 @@ public class HeatPumpScheduleRunner(
             }
         }
 
-        await SendHeatPumpCommands(heatPumpAddress, heatingOffsetPoint, hotWaterModePoint, heatingDegreeMinutesPoint);
+        await SendHeatPumpCommands(heatPumpAddress, HeatingOffsetPoint, HotWaterModePoint, HeatingDegreeMinutesPoint);
 
         await SendLivingRoomThermostatCommands(livingRoomThermostat, comfortEnumValue);
 
@@ -239,12 +253,11 @@ public class HeatPumpScheduleRunner(
         return null;
     }
 
-    [MemberNotNull(nameof(heatPumpDevice), nameof(heatPumpAddress), nameof(livingRoomThermostat), nameof(weatherForecastDevice), nameof(heatDistributionControllerDevice))]
+    [MemberNotNull(nameof(heatPumpDevice), nameof(heatPumpAddress), nameof(livingRoomThermostat), nameof(heatDistributionControllerDevice))]
     private void EnsureDevicesInitialized()
     {
         if (heatPumpDevice is null) throw new InvalidOperationException("Heat pump device not found");
         if (livingRoomThermostat is null) throw new InvalidOperationException("Living room thermostat device not found");
-        if (weatherForecastDevice is null) throw new InvalidOperationException("Weather forecast device not found");
         if (heatDistributionControllerDevice is null) throw new InvalidOperationException("Heat distribution controller device not found");
         if (heatPumpAddress is null) throw new InvalidOperationException("Heat pump device address is invalid");
     }
@@ -265,8 +278,6 @@ public class HeatPumpScheduleRunner(
             ?? throw new InvalidOperationException("Heat pump device not found");
 
         livingRoomThermostat = devices.FirstOrDefault(x => x.Type == "airobot_thermostat" && x.SubType == "living-room");
-
-        weatherForecastDevice = devices.FirstOrDefault(x => x.Type == "yrno_weather_forecast");
 
         heatDistributionControllerDevice = devices.FirstOrDefault(x => x.Type == "shelly" && x.SubType == "heat-distribution-controller");
 
