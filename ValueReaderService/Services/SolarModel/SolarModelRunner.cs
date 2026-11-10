@@ -57,7 +57,11 @@ public class SolarModelRunner(
     {
         var tomorrowLocal = timestamp.ToLocalTime().Date.AddDays(1);
 
+        var dataStart = new DateOnly(2026, 6, 26);
+
         var start = DateOnly.FromDateTime(timestamp.AddDays(-365));
+        if (start < dataStart)
+            start = dataStart;
         var end = DateOnly.FromDateTime(timestamp.AddDays(2));
 
         var devices = DbContext.Devices.Where(x => x.Type == "solar_model" || x.Type == "deye_inverter" || x.Type == "yrno_weather_forecast")
@@ -113,7 +117,7 @@ public class SolarModelRunner(
             .ToList();
         var outputPropertyName = nameof(SolarModelPoint.PVInputPower);
 
-        var order = 3;
+        var order = 2;
         var (generatedNames, generatedType) = GeneratePolynomialModelType<SolarModelPoint>(inputPropertyNames, outputPropertyName, order);
 
         var generatedTrainPoints = GeneratePolynomialModel(trainPoints, inputPropertyNames, outputPropertyName, generatedType, order);
@@ -137,22 +141,31 @@ public class SolarModelRunner(
             .Append(mlContext.Transforms.NormalizeLogMeanVariance("Features"))
             .Append(mlContext.Regression.Trainers.Ols(options));
 
+        //var cvResults = mlContext.Regression.CrossValidate(
+        //    data: trainingData,
+        //    estimator: pipeline,
+        //    numberOfFolds: 10,
+        //    labelColumnName: nameof(SolarModelPoint.PVInputPower)
+        //);
+
+        //PrintMetrics(cvResults.Select(r => r.Metrics));
+
         // 3. Train model.
         var model = pipeline.Fit(trainingData);
         var modelMorning = pipeline.Fit(trainingDataMorning);
         var modelEvening = pipeline.Fit(trainingDataEvening);
 
-        var trainPredictions = model.Transform(trainingData);
+        //var trainPredictions = model.Transform(trainingData);
 
         var predictions = model.Transform(predictionData);
-        var predictionsMoring = modelMorning.Transform(predictionData);
+        var predictionsMorning = modelMorning.Transform(predictionData);
         var predictionsEvening = modelEvening.Transform(predictionData);
         var predictedPVInputPowers = predictions.GetColumn<float>("Score").ToArray();
-        var predictedPVInputPowersMorning = predictionsMoring.GetColumn<float>("Score").ToArray();
+        var predictedPVInputPowersMorning = predictionsMorning.GetColumn<float>("Score").ToArray();
         var predictedPVInputPowersEvening = predictionsEvening.GetColumn<float>("Score").ToArray();
 
         //var metrics = mlContext.Regression.Evaluate(trainPredictions, labelColumnName: nameof(SolarModelPoint.PVInputPower));
-        //PrintMetrics(metrics);
+        //PrintMetrics([metrics]);
 
         var predictedPVInputPowerPointValues = new List<PointValue>();
         var predictedDayPVEnergyPointValues = new List<(PointValue pointValue, float value)>();
@@ -494,14 +507,14 @@ public class SolarModelRunner(
         propertyBuilder.SetSetMethod(setMethodBuilder);
     }
 
-    private static void PrintMetrics(RegressionMetrics metrics)
+    private static void PrintMetrics(IEnumerable<RegressionMetrics> metrics)
     {
-        Debug.WriteLine("Mean Absolute Error: " + metrics.MeanAbsoluteError);
-        Debug.WriteLine("Mean Squared Error: " + metrics.MeanSquaredError);
+        Debug.WriteLine("Mean Absolute Error: " + metrics.Average(m => m.MeanAbsoluteError));
+        Debug.WriteLine("Mean Squared Error: " + metrics.Average(m => m.MeanSquaredError));
         Debug.WriteLine(
-            "Root Mean Squared Error: " + metrics.RootMeanSquaredError);
+            "Root Mean Squared Error: " + metrics.Average(m => m.RootMeanSquaredError));
 
-        Debug.WriteLine("RSquared: " + metrics.RSquared);
+        Debug.WriteLine("RSquared: " + metrics.Average(m => m.RSquared));
     }
 
     private class SolarModelPoint
@@ -528,6 +541,12 @@ public class SolarModelRunner(
 
         [PointType("solar-elevation")]
         public float SolarElevation { get; set; }
+
+        [PointType("precipitation-probability", true)]
+        public float PrecipitationProbability { get; set; }
+
+        [PointType("precipitation-amount", true)]
+        public float PrecipitationAmount { get; set; }
 
         public float CosSolarElevation { get; set; }
         public float SinSolarElevation { get; set; }
