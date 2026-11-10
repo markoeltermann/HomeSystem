@@ -141,21 +141,21 @@ public class SolarModelRunner(
             .Append(mlContext.Transforms.NormalizeLogMeanVariance("Features"))
             .Append(mlContext.Regression.Trainers.Ols(options));
 
-        var cvResults = mlContext.Regression.CrossValidate(
-            data: trainingData,
-            estimator: pipeline,
-            numberOfFolds: 10,
-            labelColumnName: nameof(SolarModelPoint.PVInputPower)
-        );
+        //var cvResults = mlContext.Regression.CrossValidate(
+        //    data: trainingData,
+        //    estimator: pipeline,
+        //    numberOfFolds: 10,
+        //    labelColumnName: nameof(SolarModelPoint.PVInputPower)
+        //);
 
-        PrintMetrics(cvResults.Select(r => r.Metrics));
+        //PrintMetrics(cvResults.Select(r => r.Metrics));
 
         // 3. Train model.
         var model = pipeline.Fit(trainingData);
         var modelMorning = pipeline.Fit(trainingDataMorning);
         var modelEvening = pipeline.Fit(trainingDataEvening);
 
-        var trainPredictions = model.Transform(trainingData);
+        //var trainPredictions = model.Transform(trainingData);
 
         var predictions = model.Transform(predictionData);
         var predictionsMorning = modelMorning.Transform(predictionData);
@@ -164,8 +164,8 @@ public class SolarModelRunner(
         var predictedPVInputPowersMorning = predictionsMorning.GetColumn<float>("Score").ToArray();
         var predictedPVInputPowersEvening = predictionsEvening.GetColumn<float>("Score").ToArray();
 
-        var metrics = mlContext.Regression.Evaluate(trainPredictions, labelColumnName: nameof(SolarModelPoint.PVInputPower));
-        PrintMetrics([metrics]);
+        //var metrics = mlContext.Regression.Evaluate(trainPredictions, labelColumnName: nameof(SolarModelPoint.PVInputPower));
+        //PrintMetrics([metrics]);
 
         var predictedPVInputPowerPointValues = new List<PointValue>();
         var predictedDayPVEnergyPointValues = new List<(PointValue pointValue, float value)>();
